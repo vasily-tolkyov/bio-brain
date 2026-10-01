@@ -5,78 +5,10 @@
  *    同样的刺激也施加在未训练的网络上作对照
  * 用法：node demo/fig5-decode.mjs → figures/fig5-decode.png */
 import fs from 'fs';
-import { buildNetwork, CFG } from './fig2-network.mjs';
+import { buildNetwork } from './fig2-network.mjs';
+import { cfg, NE, mean, proto, groupOf, trainedNetwork, discoverAttractors, labelAttractors } from './lib-trained.mjs';
 import { makeRng } from '../src/core/rng.mjs';
 import { Canvas, PALETTE } from '../src/core/png.mjs';
-
-const cfg = CFG, { NE, K, M } = cfg;
-const mean = (x) => x.reduce((s, v) => s + v, 0) / (x.length || 1);
-const proto = Array.from({ length: K }, (_, k) => Array.from({ length: M }, (_, i) => k * M + i));
-const groupOf = (i) => (i < K * M ? Math.floor(i / M) : -1);
-
-function train(log) {
-  const built = buildNetwork(cfg), { net, EE } = built;
-  const ie = net.groups.find((g) => g.istdp);
-  const file = `cache/trained-seed${cfg.seed}.json`;
-  if (fs.existsSync(file)) {
-    const s = JSON.parse(fs.readFileSync(file, 'utf8'));
-    EE.rho.set(s.rho); for (let k = 0; k < EE.rho.length; k++) EE.scale[k] = 0.1 + (cfg.sMax - 0.1) * EE.rho[k];
-    ie.scale.set(s.ie);
-    log(`读入已训练的突触状态 ${file}`);
-    return built;
-  }
-  const rng = makeRng(cfg.seed + 2);
-  const variant = (k) => new Set([...rng.shuffle(proto[k].slice()).slice(0, 16), ...rng.shuffle([...Array(NE).keys()].filter((i) => groupOf(i) !== k)).slice(0, 4)]);
-  const drive = (set, r) => (i) => (i < NE ? (set.has(i) ? r : cfg.bg) : 0);
-  const t0 = Date.now();
-  net.run(500, { rate: drive(new Set(), 0), learn: false });
-  for (let n = 0; n < cfg.nLearn; n++) { net.run(200, { rate: drive(variant(rng.pick(K)), cfg.stim), learn: true }); net.run(300, { rate: drive(new Set(), 0), learn: true }); if (n % 50 === 49) log(`  训练：第一阶段 ${n + 1}/${cfg.nLearn}，${((Date.now() - t0) / 1000).toFixed(0)} s`); }
-  for (let n = 0; n < cfg.nSeq; n++) { for (let k = 0; k < K; k++) net.run(cfg.seqItemMs, { rate: drive(new Set(proto[k]), cfg.seqStim), learn: true }); net.run(cfg.seqRestMs, { rate: drive(new Set(), 0), learn: true }); }
-  log(`  训练完成，${((Date.now() - t0) / 1000).toFixed(0)} s`);
-  fs.mkdirSync('cache', { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ rho: [...EE.rho], ie: [...ie.scale] }));
-  return built;
-}
-
-/** 只看学到的突触找吸引子：井由对称部分决定、有向通道是反对称部分，所以只用"双向都强"的连接——
- * 两个方向都有突触时取 min(ρ_ij, ρ_ji)（单向强的通道 A→B 因此不会把两口井并成一口），只有一个方向时取它的一半；
- * 强连接（> θ）上做标签传播，成员 ≥ 5 的社团算一个吸引子 */
-function discoverAttractors(EE, theta = 0.25) {
-  const R = Array.from({ length: NE }, () => new Float64Array(NE).fill(NaN));
-  for (let k = 0; k < EE.pre.length; k++) { const a = EE.pre[k], b = EE.post[k]; if (a < NE && b < NE) R[b][a] = EE.rho[k]; }
-  const S = Array.from({ length: NE }, () => new Float64Array(NE));
-  for (let i = 0; i < NE; i++) for (let j = 0; j < NE; j++) {
-    if (i === j) continue;
-    const ab = R[i][j], ba = R[j][i];
-    S[i][j] = Number.isNaN(ab) && Number.isNaN(ba) ? 0 : Number.isNaN(ab) ? ba / 2 : Number.isNaN(ba) ? ab / 2 : Math.min(ab, ba);
-  }
-  const label = [...Array(NE).keys()];
-  for (let it = 0; it < 30; it++) {
-    let changed = false;
-    for (let i = 0; i < NE; i++) {
-      const score = new Map();
-      for (let j = 0; j < NE; j++) if (j !== i && S[i][j] > theta) score.set(label[j], (score.get(label[j]) ?? 0) + S[i][j]);
-      if (!score.size) continue;
-      const best = [...score].sort((x, y) => y[1] - x[1] || x[0] - y[0])[0][0];
-      if (best !== label[i]) { label[i] = best; changed = true; }
-    }
-    if (!changed) break;
-  }
-  const groups = new Map();
-  label.forEach((l, i) => { if (!groups.has(l)) groups.set(l, []); groups.get(l).push(i); });
-  let comms = [...groups.values()].filter((g) => g.length >= 5);
-  const meanS = (a, b) => { let s = 0, n = 0; for (const i of a) for (const j of b) if (i !== j) { s += S[i][j]; n++; } return n ? s / n : 0; };
-  // 合并：两个社团之间的双向连接与各自内部一样强（≥ 内部较弱者的一半）就是同一口井被标签传播切开了
-  for (let merged = true; merged;) {
-    merged = false;
-    for (let a = 0; a < comms.length && !merged; a++) for (let b = a + 1; b < comms.length && !merged; b++) {
-      if (meanS(comms[a], comms[b]) >= 0.5 * Math.min(meanS(comms[a], comms[a]), meanS(comms[b], comms[b]))) { comms[a] = [...comms[a], ...comms[b]]; comms.splice(b, 1); merged = true; }
-    }
-  }
-  // 剔除挂靠成员：与本社团其余成员的平均双向连接不到社团中位数的一半
-  comms = comms.map((g) => { const m = g.map((i) => meanS([i], g)); const med = [...m].sort((x, y) => x - y)[m.length >> 1]; return g.filter((_, k) => m[k] >= 0.5 * med); });
-  return comms.filter((g) => g.length >= 5).sort((a, b) => a[0] - b[0]);
-}
 
 /** 施加一个刺激（每个被刺激神经元的输入速率可不同），返回 200 ms 内各神经元放电数与各吸引子 10 ms 分箱的放电率 */
 function apply(net, drives, attractors, { ms = 200, reps = 3 } = {}) {
@@ -117,10 +49,10 @@ function latency(net, drives, attractors, reps = 6) {
 }
 
 const log = console.log;
-const trained = train(log);
+const trained = trainedNetwork(log);
 const naive = buildNetwork(cfg);
 const attractors = discoverAttractors(trained.EE);
-const purity = attractors.map((g) => { const c = [0, 0, 0, 0, 0]; for (const i of g) c[groupOf(i) + 1]++; const best = Math.max(...c.slice(1)); return { size: g.length, label: 'ABCD'[c.slice(1).indexOf(best)], purity: best / g.length, recall: best / M }; });
+const purity = labelAttractors(attractors);
 log(`只看学到的突触找到 ${attractors.length} 个吸引子：${purity.map((p) => `${p.label}（${p.size} 个神经元，纯度 ${(p.purity * 100).toFixed(0)}%，覆盖原型 ${(p.recall * 100).toFixed(0)}%）`).join('，')}`);
 const names = purity.map((p) => p.label);
 
