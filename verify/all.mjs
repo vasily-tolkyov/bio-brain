@@ -1,13 +1,15 @@
-/** 逐层验证：任何一层有未通过的检查即返回非零 */
+/** 逐层验证：任何一层有未通过的检查即返回非零。FAST=1 跳过约 4 分钟的脉冲网络涌现实验（L4b） */
 import { verifyL1 } from './L1-neuron.mjs';
 import { verifyL2 } from './L2-synapse.mjs';
 import { verifyL3 } from './L3-hebbian.mjs';
 import { verifyL4 } from './L4-network.mjs';
+import { verifyL4Emergence } from './L4-emergence.mjs';
 import { verifyL5 } from './L5-brain.mjs';
 
 const t0 = Date.now();
 const results = [];
-for (const [name, fn] of [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L5', verifyL5]]) {
+const layers = [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L4b', verifyL4Emergence], ['L5', verifyL5]].filter(([n]) => !(process.env.FAST && n === 'L4b'));
+for (const [name, fn] of layers) {
   const t = Date.now();
   const { ok } = fn();
   results.push({ name, ok, s: (Date.now() - t) / 1000 });
