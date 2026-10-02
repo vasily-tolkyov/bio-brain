@@ -60,6 +60,13 @@ export class SpikingNetwork {
     this.t = 0;
     this.spikes = Array.from({ length: N }, () => []);
     this.idx = (name) => { const q = this.pops[name]; return Array.from({ length: q.n }, (_, k) => q.start + k); };
+    // 后去极化（Lisman & Idiart 1995 的工作记忆模型）：放电后一股先升后降的去极化电流 amp·(e^{−t/decay} − e^{−t/rise})，
+    // 让一个神经元在下一个 θ 周期的同一时段再次放电——被保持的几项在每个周期里按原来的先后重演
+    if (pops.some((p) => p.adp)) {
+      this.adpOf = new Array(N).fill(null);
+      for (const p of pops) if (p.adp) { const q = this.pops[p.name]; for (let k = 0; k < q.n; k++) this.adpOf[q.start + k] = p.adp; }
+      this.adpR = new Float64Array(N); this.adpD = new Float64Array(N);
+    }
     if (pops.some((p) => p.apical)) {
       this.ap = new Array(N).fill(null);
       for (const p of pops) if (p.apical) {
@@ -172,6 +179,8 @@ export class SpikingNetwork {
           this.Vd[i] = Vd + (dt * (-a.gLd * (Vd - EL) + a.gd * plateau - this.wd[i] + Id)) / a.Cd;
           I += a.gs * plateau;
         }
+        const adp = this.adpOf?.[i];
+        if (adp) { this.adpR[i] *= Math.exp(-dt / adp.rise); this.adpD[i] *= Math.exp(-dt / adp.decay); I += this.adpD[i] - this.adpR[i]; }
         // 第 1 层 LIF（与 LIFNeuron.step 同式同序）
         const p = this.par[i];
         ledger.add('rest', costs.atpRestPerMs * dt);
@@ -184,6 +193,7 @@ export class SpikingNetwork {
           fired[i] = 1; this.spikes[i].push(t + dt);
           ledger.add('spike', costs.atpPerSpike);
           if (a) this.bapUntil[i] = t + dt + a.bapMs;
+          if (adp) { this.adpR[i] += adp.amp; this.adpD[i] += adp.amp; }
         }
       }
       // 突触前放电 → 释放囊泡、给突触后加电导；钙迹

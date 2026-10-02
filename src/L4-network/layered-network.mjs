@@ -26,7 +26,7 @@ export function buildLayered(nLayers, cfg) {
   const pops = [];
   for (let k = 1; k <= nLayers; k++) {
     pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300 }, apical: c.apical || c.deep || undefined }, { name: `I${k}`, n: c.NI, p: { C: 100, tRef: 1 } });
-    if (c.deep) pops.push({ name: `D${k}`, n: c.NE, p: c.deepP }, { name: `DI${k}`, n: c.NI, p: { C: 100, tRef: 1 } });
+    if (c.deep) pops.push({ name: `D${k}`, n: c.NE, p: c.deepP, adp: c.deepAdp }, { name: `DI${k}`, n: c.NI, p: { C: 100, tRef: 1 } });
   }
   const net = new SpikingNetwork({ costs: mammalianCosts(), seed: c.seed, plasticity: c.rule, pops });
   const block = (a) => Math.min(Math.floor(a / c.M), c.K);
@@ -84,7 +84,12 @@ export function inputRate(stack, drives = new Map(), extra = null) {
   const arr = new Float64Array(stack.net.N);
   stack.layers.forEach((L, k) => { L.E.forEach((i, a) => (arr[i] = k === 0 ? drives.get(a) ?? stack.cfg.bg : stack.cfg.bg)); if (L.D) for (const i of L.D) arr[i] = stack.cfg.bg; });
   if (extra) for (const [i, hz] of extra) arr[i] = hz;
-  return (i) => arr[i];
+  // θ 节律：深层的抑制性神经元收到按 f Hz 起伏的外部输入，每个周期把深层整体抑制一次（θ 的起搏来自内侧隔区等处的节律性抑制）
+  const th = stack.cfg.theta;
+  if (!th) return (i) => arr[i];
+  const isDI = new Uint8Array(stack.net.N);
+  for (const L of stack.layers) if (L.DI) for (const i of L.DI) isDI[i] = 1;
+  return (i, t) => (isDI[i] ? (th.rate * (1 + Math.cos((2 * Math.PI * th.f * t) / 1000))) / 2 : arr[i]);
 }
 
 /** [t0, t1) 内各神经元的放电时刻（放电记录按时间追加，从尾部往前找） */

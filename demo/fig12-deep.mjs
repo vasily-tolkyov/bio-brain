@@ -65,9 +65,9 @@ function study(S, name) {
   return r;
 }
 
-export function runDeep({ log: logTo } = {}) {
-  const nets = [['1 层', trainedStack(1, { arch: 'deep' })], ['2 层', trainedStack(2, { arch: 'deep' })], ['2 层，第二层没经历物体序列', trainedStack(2, { arch: 'deep', variant: 'noseq' })]];
-  const cut = trainedStack(2, { arch: 'deep' }); cut.layers[1].FBA.scale.fill(0); cut.layers[1].FBD.scale.fill(0);
+export function runDeep({ arch = 'deep' } = {}) {
+  const nets = [['1 层', trainedStack(1, { arch })], ['2 层', trainedStack(2, { arch })], ['2 层，第二层没经历物体序列', trainedStack(2, { arch, variant: 'noseq' })]];
+  const cut = trainedStack(2, { arch }); cut.layers[1].FBA.scale.fill(0); cut.layers[1].FBD.scale.fill(0);
   nets.push(['2 层，切断深层发出的反馈', cut]);
   const res = nets.map(([n, S]) => study(S, n));
   const [r1, r2, rNo, rCut] = res;
@@ -97,10 +97,11 @@ export function runDeep({ log: logTo } = {}) {
     [r2, rNo, rCut].forEach((r, j) => { const h = (Math.min(mx, Math.max(0, get(r))) / mx) * 300; cv.rect(x0 + j * 90, 740 - h, 70, h, [PALETTE[1], [150, 150, 150], [60, 60, 60]][j]); });
     cv.rect(x0, 740, 300, 1, [150, 150, 150]);
   });
-  cv.save('figures/fig12-deep.png');
-  fs.writeFileSync('figures/deep-results.json', JSON.stringify(res.map(({ course, ...r }) => r)));
-  log('\n写入 figures/fig12-deep.png');
+  const sfx = arch === 'deep' ? '' : `-${arch}`;
+  cv.save(`figures/fig12-deep${sfx}.png`);
+  fs.writeFileSync(`figures/deep-results${sfx}.json`, JSON.stringify(res.map(({ course, ...r }) => r)));
+  log(`\n写入 figures/fig12-deep${sfx}.png`);
   return res;
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) runDeep();
+if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) runDeep({ arch: process.argv[2] ?? 'deep' });
