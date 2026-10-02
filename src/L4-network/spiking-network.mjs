@@ -74,6 +74,7 @@ export class SpikingNetwork {
 
   /** 随机连接一组突触。plastic: { sMin, sMax, rho0, accel, budget } 给定时这组突触按钙规则学习；
    *   budget 给定时加异突触竞争：每 10 ms，一个神经元的输入突触平均效能超过 budget 就把全部输入等量下调（总量有限，强了一部分、别的就得弱）；
+   * kind：'exc'（AMPA + NMDA）、'nmda'（只有 NMDA：慢、电压依赖，可维持持续活动）、'inh'（GABA_A）；
    * 返回的组上设 frozen = true 时这组突触暂停学习（其余组不受影响，逐拍结果与不设时相同）；
    * istdp: { eta, target, tau, wMax } 给定时（抑制性突触）按 Vogels 等 2011 的抑制性可塑性学习：
    *   突触前抑制性神经元放电时 w += η(y_post − α)，突触后兴奋性神经元放电时 w += η·x_pre，α = 2·目标频率·τ——
@@ -197,6 +198,7 @@ export class SpikingNetwork {
           const i = g.post[k], s = ves * g.scale[k];
           const A = g.target === 'apical' ? this.dra : this.ra, Bq = g.target === 'apical' ? this.drb : this.rb;
           if (g.kind === 'exc') for (let q = 0; q < 2; q++) { const v = s * REC[q].q * REC[q].k; A[q][i] += v; Bq[q][i] += v; }
+          else if (g.kind === 'nmda') { const v = s * REC[1].q * REC[1].k; A[1][i] += v; Bq[1][i] += v; }
           else { const v = s * REC[2].q * REC[2].k; A[2][i] += v; Bq[2][i] += v; }
           ledger.add('syn_pre', ves * PRE_ATP_PER_VESICLE);
         }

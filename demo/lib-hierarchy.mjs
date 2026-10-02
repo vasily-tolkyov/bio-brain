@@ -48,13 +48,31 @@ function trainFirst(log) {
   return saveState(S);
 }
 
-/** 两种结构：point = 点神经元、反馈落在胞体；apical = 带顶树突、反馈落在顶树突（第一层没有反馈，两种结构的第一层行为相同，共用缓存） */
-export const archCfg = (arch = 'point') => ({ ...cfg, apical: arch === 'apical' });
+/** 三种结构：point = 点神经元、反馈落在胞体；apical = 带顶树突、反馈落在顶树突（第一层没有反馈，这两种结构的第一层行为相同，共用缓存）；
+ * deep = 每层分浅层（带顶树突，吸引子竞争，往上送证据）与深层（学有向通道、发出预测），预测落到下一层浅层的顶树突与下一层深层 */
+export const archCfg = (arch = 'point') => ({ ...cfg, apical: arch !== 'point', deep: arch === 'deep' });
+
+/** 深层结构的第一层：浅层用点神经元结构训练好的第一层；深层经历 A→D、C→B 序列（只有深层学习）→ 第一层的有向通道在深层 */
+function trainDeepFirst(log) {
+  const S = buildLayered(1, archCfg('deep')), L = S.layers[0], t0 = Date.now();
+  loadState(S, trainedState(1, { log }));
+  learnOnly(S, [L.DEE, L.DIE]);
+  run(S, 500, new Map(), false);
+  for (let n = 0; n < 80; n++) {
+    const [p, q] = n % 2 ? OBJ.Y : OBJ.X;
+    run(S, cfg.seqItemMs, at(proto(p), cfg.seqStim), true);
+    run(S, cfg.seqItemMs, at(proto(q), cfg.seqStim), true);
+    run(S, cfg.seqRestMs, new Map(), true);
+  }
+  log(`  第一层深层训练完成（${((Date.now() - t0) / 1000).toFixed(0)} s）`);
+  return saveState(S);
+}
 
 function trainUpper(k, below, { seq = true, log, arch = 'point' }) {
   const S = buildLayered(k, archCfg(arch)), L = S.layers[k - 1], rng = makeRng(cfg.seed + 10 * k), t0 = Date.now();
   loadState(S, below);
-  learnOnly(S, [L.EE, L.IE, L.FB, ...S.layers.slice(0, k - 1).map((q) => q.IE)]);
+  const homeo = S.layers.slice(0, k - 1).flatMap((q) => [q.IE, q.DIE]);
+  learnOnly(S, arch === 'deep' ? [L.EE, L.IE, L.DIE, L.FBA, L.FBD, ...homeo] : [L.EE, L.IE, L.FB, ...homeo]);
   run(S, 500, new Map(), false);
   for (let n = 0; n < 100; n++) {
     const parts = OBJ[rng.pick(2) ? 'Y' : 'X'];
@@ -63,7 +81,7 @@ function trainUpper(k, below, { seq = true, log, arch = 'point' }) {
     if (n % 25 === 24) log(`  第 ${k} 层：物体 ${n + 1}/100（${((Date.now() - t0) / 1000).toFixed(0)} s）`);
   }
   if (seq) {
-    learnOnly(S, [L.EE]);
+    learnOnly(S, arch === 'deep' ? [L.DEE, L.DIE] : [L.EE]);
     for (let n = 0; n < SEQ_REPS; n++) {
       run(S, SEQ_ITEM_UPPER, at(OBJ.X.flatMap(proto), cfg.seqStim), true);
       run(S, SEQ_ITEM_UPPER, at(OBJ.Y.flatMap(proto), cfg.seqStim), true);
@@ -76,9 +94,10 @@ function trainUpper(k, below, { seq = true, log, arch = 'point' }) {
 
 /** 训练好的 k 层状态（逐层缓存）；variant = 'noseq' 时最上层不经历物体序列（对照：没有物体级有向通道） */
 export function trainedState(k, { variant = '', arch = 'point', log = console.log } = {}) {
-  const file = `cache/hier-${k}${k > 1 && arch === 'apical' ? '-ap' : ''}${variant ? '-' + variant : ''}.json`;
+  const tag = arch === 'deep' ? '-deep' : k > 1 && arch === 'apical' ? '-ap' : '';
+  const file = `cache/hier-${k}${tag}${variant ? '-' + variant : ''}.json`;
   if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  const state = k === 1 ? trainFirst(log) : trainUpper(k, trainedState(k - 1, { arch, log }), { seq: variant !== 'noseq', log, arch });
+  const state = k === 1 ? (arch === 'deep' ? trainDeepFirst(log) : trainFirst(log)) : trainUpper(k, trainedState(k - 1, { arch, log }), { seq: variant !== 'noseq', log, arch });
   fs.mkdirSync('cache', { recursive: true });
   fs.writeFileSync(file, JSON.stringify(state));
   return state;
