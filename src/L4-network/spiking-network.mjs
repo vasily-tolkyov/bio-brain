@@ -56,6 +56,7 @@ export class SpikingNetwork {
 
   /** 随机连接一组突触。plastic: { sMin, sMax, rho0, accel, budget } 给定时这组突触按钙规则学习；
    *   budget 给定时加异突触竞争：每 10 ms，一个神经元的输入突触平均效能超过 budget 就把全部输入等量下调（总量有限，强了一部分、别的就得弱）；
+   * 返回的组上设 frozen = true 时这组突触暂停学习（其余组不受影响，逐拍结果与不设时相同）；
    * istdp: { eta, target, tau, wMax } 给定时（抑制性突触）按 Vogels 等 2011 的抑制性可塑性学习：
    *   突触前抑制性神经元放电时 w += η(y_post − α)，突触后兴奋性神经元放电时 w += η·x_pre，α = 2·目标频率·τ——
    *   突触后放电高于目标频率时抑制变强，低于时变弱，局部地维持兴奋/抑制平衡 */
@@ -162,6 +163,7 @@ export class SpikingNetwork {
         this.pending.push(t + gb.D, j);
         this.y[j] += 1;
         if (learn && this.istdpGroups) for (const g of this.istdpGroups) {
+          if (g.frozen) continue;
           const { eta, target, tau, wMax } = g.istdp, alpha = (2 * target * tau) / 1000;
           for (let m = 0; m < o.length; m += 2) { if (this.groups[o[m]] !== g) continue; const k = o[m + 1]; g.scale[k] = Math.min(wMax, Math.max(0, g.scale[k] + eta * (this.ys[g.post[k]] - alpha))); }
           for (const k of g.inc[j]) g.scale[k] = Math.min(wMax, Math.max(0, g.scale[k] + eta * this.xs[g.pre[k]]));
@@ -171,15 +173,19 @@ export class SpikingNetwork {
       // NMDA 同时检测：突触前放电立刻结合；突触后放电时，每个输入突触按其突触前的结合比例多进一份钙
       if (this.nmda && gb.eta) {
         for (let j = 0; j < N; j++) if (fired[j]) this.nmda[j] += 1;
-        for (const g of this.plastic) for (let i = 0; i < N; i++) {
-          if (!fired[i]) continue;
-          for (const k of g.incP[i]) g.z[k] += gb.eta * gb.Cpre * this.nmda[g.pre[k]];
+        for (const g of this.plastic) {
+          if (g.frozen) continue;
+          for (let i = 0; i < N; i++) {
+            if (!fired[i]) continue;
+            for (const k of g.incP[i]) g.z[k] += gb.eta * gb.Cpre * this.nmda[g.pre[k]];
+          }
         }
       }
       // 钙规则（与第 3 层 CalciumPlasticity 同序：到期的突触前钙先到，再按此刻的钙更新效能，最后钙衰减）
       while (this.pendHead < this.pending.length && this.pending[this.pendHead] <= t) { this.x[this.pending[this.pendHead + 1]] += 1; this.pendHead += 2; }
       if (this.pendHead > 4096) { this.pending = this.pending.slice(this.pendHead); this.pendHead = 0; }
       if (learn) for (const g of this.plastic) {
+        if (g.frozen) continue;
         const { sMin, sMax, accel = 1 } = g.plastic, rate_ = (dt * accel) / gb.tau;
         for (let k = 0; k < g.pre.length; k++) {
           const c = gb.Cpre * this.x[g.pre[k]] + gb.Cpost * this.y[g.post[k]] + g.z[k];
@@ -192,10 +198,10 @@ export class SpikingNetwork {
         }
       }
       for (let i = 0; i < N; i++) { this.x[i] *= dCa; this.y[i] *= dCa; }
-      for (const g of this.plastic) for (let k = 0; k < g.z.length; k++) g.z[k] *= dCa;
+      for (const g of this.plastic) { if (g.frozen) continue; for (let k = 0; k < g.z.length; k++) g.z[k] *= dCa; }
       if (learn && Math.round(this.t / dt) % Math.max(1, Math.round(10 / dt)) === 0) for (const g of this.plastic) {
         const budget = g.plastic.budget;
-        if (budget === undefined) continue;
+        if (budget === undefined || g.frozen) continue;
         const { sMin, sMax } = g.plastic;
         for (let i = 0; i < N; i++) {
           const inc = g.incP[i];
