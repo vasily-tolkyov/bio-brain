@@ -48,8 +48,11 @@ function trainFirst(log) {
   return saveState(S);
 }
 
-function trainUpper(k, below, { seq = true, log }) {
-  const S = buildLayered(k, cfg), L = S.layers[k - 1], rng = makeRng(cfg.seed + 10 * k), t0 = Date.now();
+/** 两种结构：point = 点神经元、反馈落在胞体；apical = 带顶树突、反馈落在顶树突（第一层没有反馈，两种结构的第一层行为相同，共用缓存） */
+export const archCfg = (arch = 'point') => ({ ...cfg, apical: arch === 'apical' });
+
+function trainUpper(k, below, { seq = true, log, arch = 'point' }) {
+  const S = buildLayered(k, archCfg(arch)), L = S.layers[k - 1], rng = makeRng(cfg.seed + 10 * k), t0 = Date.now();
   loadState(S, below);
   learnOnly(S, [L.EE, L.IE, L.FB, ...S.layers.slice(0, k - 1).map((q) => q.IE)]);
   run(S, 500, new Map(), false);
@@ -72,10 +75,10 @@ function trainUpper(k, below, { seq = true, log }) {
 }
 
 /** 训练好的 k 层状态（逐层缓存）；variant = 'noseq' 时最上层不经历物体序列（对照：没有物体级有向通道） */
-export function trainedState(k, { variant = '', log = console.log } = {}) {
-  const file = `cache/hier-${k}${variant ? '-' + variant : ''}.json`;
+export function trainedState(k, { variant = '', arch = 'point', log = console.log } = {}) {
+  const file = `cache/hier-${k}${k > 1 && arch === 'apical' ? '-ap' : ''}${variant ? '-' + variant : ''}.json`;
   if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  const state = k === 1 ? trainFirst(log) : trainUpper(k, trainedState(k - 1, { log }), { seq: variant !== 'noseq', log });
+  const state = k === 1 ? trainFirst(log) : trainUpper(k, trainedState(k - 1, { arch, log }), { seq: variant !== 'noseq', log, arch });
   fs.mkdirSync('cache', { recursive: true });
   fs.writeFileSync(file, JSON.stringify(state));
   return state;
@@ -83,7 +86,7 @@ export function trainedState(k, { variant = '', log = console.log } = {}) {
 
 /** 搭一个 k 层网络并装入训练好的状态（全部冻结） */
 export function trainedStack(k, opts = {}) {
-  const S = buildLayered(k, cfg);
+  const S = buildLayered(k, archCfg(opts.arch));
   loadState(S, trainedState(k, opts));
   learnOnly(S, []);
   return S;

@@ -8,7 +8,8 @@
  *   想象：第一层没有刺激，直接驱动第二层 X 的组——反馈能否在第一层重建 X、传下预测的 Y；
  *   对照：切断反馈；上层没经历物体序列（没有物体级通道）。两者的差别才是"预测"本身的作用；
  *   补全：只给 X 的一个部件的一半成员；不变性：同一物体两种互不重叠的刺激；抗噪：残缺 + 噪声；延迟与 ATP。
- * 用法：node demo/fig10-hierarchy.mjs（首次运行先逐层训练，之后读缓存）→ figures/fig10-hierarchy.png */
+ * 用法：node demo/fig10-hierarchy.mjs [apical]（首次运行先逐层训练，之后读缓存）→ figures/fig10-hierarchy[-apical].png
+ *   apical：兴奋性神经元带顶树突、反馈落在顶树突（见 src/L4-network/spiking-network.mjs 的 APICAL_DEFAULT） */
 import fs from 'fs';
 import { cfg, NE, proto, OBJ, mean, trainedStack, SEQ_ITEM_UPPER } from './lib-hierarchy.mjs';
 import { inputRate, spikesIn } from '../src/L4-network/layered-network.mjs';
@@ -21,23 +22,36 @@ const XB = OBJ.X.map((p) => BL.indexOf(p)), YB = OBJ.Y.map((p) => BL.indexOf(p))
 const t0 = Date.now(), el = () => `${((Date.now() - t0) / 1000).toFixed(0)} s`;
 const corr = (a, b) => { const n = a.length, ma = mean(a), mb = mean(b); let x = 0, y = 0, z = 0; for (let i = 0; i < n; i++) { x += (a[i] - ma) * (b[i] - mb); y += (a[i] - ma) ** 2; z += (b[i] - mb) ** 2; } return x / Math.sqrt(y * z || 1); };
 
-/** 一段刺激序列重复 reps 次：各层各组 5 ms 分箱的放电率、各层每个神经元的放电数、ATP、第一层 Y 的组的平均膜电位（1 ms） */
-function trial(S, segments, { reps = 6, pre = 400 } = {}) {
+/** 一段刺激序列重复 reps 次：各层各组 5 ms 分箱的放电率、各层每个神经元的放电数、ATP、
+ * 第一层 Y 的组的平均膜电位（胞体 v、顶树突 vd，1 ms）；win = [w0, w1) 时另给出这段时间里第一层 Y 的组的爆发比例（间隔 < 10 ms）与首个脉冲延迟 */
+function trial(S, segments, { reps = 6, pre = 400, win = null } = {}) {
   const total = segments.reduce((s, [ms]) => s + ms, 0), nb = Math.round(total / BIN);
   const course = S.layers.map(() => blocks.map(() => new Float64Array(nb)));
-  const cells = S.layers.map(() => new Float64Array(NE)), v = new Float64Array(Math.round(total));
+  const cells = S.layers.map(() => new Float64Array(NE)), v = new Float64Array(Math.round(total)), vd = new Float64Array(Math.round(total));
   const vIds = YB.flatMap((q) => blocks[q].map((a) => S.layers[0].E[a]));
-  let atp = 0;
+  let atp = 0, isis = 0, bursts = 0;
+  const lats = [];
   for (let r = 0; r < reps; r++) {
     S.net.run(pre, { rate: inputRate(S), learn: false });
     const ts = S.net.t, a0 = S.net.ledger.total();
     let step = 0;
-    const onStep = () => { if (step++ % 10) return; const ms = step / 10 | 0; if (ms < v.length) { let s = 0; for (const i of vIds) s += S.net.V[i]; v[ms] += s / vIds.length / reps; } };
+    const onStep = () => {
+      if (step++ % 10) return;
+      const ms = step / 10 | 0;
+      if (ms >= v.length) return;
+      let s = 0, sd = 0;
+      for (const i of vIds) { s += S.net.V[i]; if (S.net.Vd) sd += S.net.Vd[i]; }
+      v[ms] += s / vIds.length / reps; vd[ms] += sd / vIds.length / reps;
+    };
     for (const [ms, drives, extra] of segments) S.net.run(ms, { rate: inputRate(S, drives, extra), learn: false, onStep });
     atp += (S.net.ledger.total() - a0) / reps;
     S.layers.forEach((L, k) => spikesIn(S.net, L.E, ts, ts + total).forEach((s, a) => { cells[k][a] += s.length / reps; const q = Math.floor(a / cfg.M); if (q < 4) for (const t of s) { const b = Math.floor((t - ts) / BIN); if (b < nb) course[k][q][b] += 1 / (cfg.M * BIN / 1000) / reps; } }));
+    if (win) for (const s of spikesIn(S.net, vIds, ts + win[0], ts + win[1])) {
+      if (s.length) lats.push(s[0] - ts - win[0]);
+      for (let k = 1; k < s.length; k++) { isis++; if (s[k] - s[k - 1] < 10) bursts++; }
+    }
   }
-  return { course, cells, atp, v };
+  return { course, cells, atp, v, vd, burst: isis ? bursts / isis : 0, latency: lats.length ? mean(lats) : null, firing: lats.length / (reps * vIds.length) };
 }
 const avg = (arr, from, to) => mean(Array.from(arr).slice(Math.round(from / BIN), Math.round(to / BIN)));
 
@@ -48,10 +62,10 @@ function study(S, name, rng) {
   const K = S.layers.length, T = SEQ_ITEM_UPPER, [x0, x1] = OBJ.X, partner = BL.indexOf(x1);
   const Xs = at(OBJ.X.flatMap(proto), cfg.seqStim), Ys = at(OBJ.Y.flatMap(proto), cfg.seqStim);
   const rest = trial(S, [[200, new Map()]], { reps: 3 });
-  const base = rest.course.map((L) => L.map((b) => avg(b, 0, 200))), vRest = mean(Array.from(rest.v));
+  const base = rest.course.map((L) => L.map((b) => avg(b, 0, 200))), vRest = mean(Array.from(rest.v)), vdRest = mean(Array.from(rest.vd));
   const P = trial(S, [[T, Xs], [200 - T, new Map()]], { reps: 16 });
-  const F = trial(S, [[T, Xs], [40, Ys], [160 - T, new Map()]], { reps: 12 });
-  const N = trial(S, [[T, new Map()], [40, Ys], [160 - T, new Map()]], { reps: 12 });
+  const F = trial(S, [[T, Xs], [40, Ys], [160 - T, new Map()]], { reps: 12, win: [T, T + 60] });
+  const N = trial(S, [[T, new Map()], [40, Ys], [160 - T, new Map()]], { reps: 12, win: [T, T + 60] });
   const Lg = trial(S, [[150, objStim('X')], [100, new Map()]], { reps: 6 });
   const C = trial(S, [[150, at(pick(x0, 10))]], { reps: 6 });
   const v1 = trial(S, [[150, at([...proto(x0).slice(0, 10), ...proto(x1).slice(0, 10)])]], { reps: 4 });
@@ -67,7 +81,10 @@ function study(S, name, rng) {
     name, K,
     pred: S.layers.map((_, k) => yAct(P, k, 0, T + 10)),
     vPeak: Math.max(...Array.from(P.v).slice(0, T + 20)) - vRest, vMean: mean(Array.from(P.v).slice(5, T + 10)) - vRest, vTrace: Array.from(P.v),
+    vdMean: mean(Array.from(P.vd).slice(5, T + 40)) - vdRest, vdTrace: Array.from(P.vd),
     facil: yAct(F, 0, T, T + 20), noCtx: yAct(N, 0, T, T + 20),
+    facil60: yAct(F, 0, T, T + 60), noCtx60: yAct(N, 0, T, T + 60),
+    burstExp: F.burst, burstNo: N.burst, latExp: F.latency, latNo: N.latency, fireExp: F.firing, fireNo: N.firing,
     complete: S.layers.map((_, k) => avg(C.course[k][partner], 0, 150) - base[k][partner]),
     invariance: S.layers.map((_, k) => corr(v1.cells[k], v2.cells[k])),
     clean: S.layers.map((_, k) => xIndex(Lg, k)), noisy: S.layers.map((_, k) => xIndex(D, k)),
@@ -77,7 +94,9 @@ function study(S, name, rng) {
   };
   log(`\n【${name}】（${el()}）`);
   log(`  预测（只给 ${T} ms 的 X）：各层 Y 的组（${OBJ.Y.join('、')}）在 0–${T + 10} ms 比静息多 ${r.pred.map((x, k) => `第${k + 1}层 ${x.toFixed(1)}`).join('、')} Hz；第一层 Y 的组膜电位比静息高 ${r.vMean.toFixed(2)} mV（平均）、${r.vPeak.toFixed(2)} mV（峰值）`);
-  log(`  易化：第一层 Y 的组在 Y 出现后头 20 ms 比静息多——短 X 之后 ${r.facil.toFixed(1)} Hz，空白之后 ${r.noCtx.toFixed(1)} Hz`);
+  log(`  易化：第一层 Y 的组在 Y 出现后头 20 ms 比静息多——短 X 之后 ${r.facil.toFixed(1)} Hz，空白之后 ${r.noCtx.toFixed(1)} Hz；头 60 ms ${r.facil60.toFixed(1)} / ${r.noCtx60.toFixed(1)} Hz`);
+  log(`    Y 出现后 60 ms 内：放电的神经元比例 ${(r.fireExp * 100).toFixed(0)}% / ${(r.fireNo * 100).toFixed(0)}%，首个脉冲延迟 ${r.latExp === null ? '—' : r.latExp.toFixed(1)} / ${r.latNo === null ? '—' : r.latNo.toFixed(1)} ms，爆发比例 ${(r.burstExp * 100).toFixed(0)}% / ${(r.burstNo * 100).toFixed(0)}%（X 之后 / 空白之后）`);
+  if (S.net.Vd) log(`  第一层 Y 的组顶树突电位比静息高 ${r.vdMean.toFixed(2)} mV（X 出现后 5–${T + 40} ms 平均）`);
   if (r.imagery) log(`  想象（第一层没有刺激，只驱动第二层 X 的组 ${T} ms）：第一层 X 的组 ${r.imagery.x1.toFixed(1)} Hz、Y 的组 ${r.imagery.y1.toFixed(1)} Hz（膜电位最多升高 ${r.imagery.vY.toFixed(2)} mV）；第二层 Y 的组 ${r.imagery.y2.toFixed(1)} Hz`);
   log(`  补全（只给 ${x0} 的 10 个）：${x1} 组比静息多 ${r.complete.map((x, k) => `第${k + 1}层 ${x.toFixed(1)}`).join('、')} Hz`);
   log(`  不变性（X 的两种互不重叠的刺激，各层响应相关）：${r.invariance.map((x, k) => `第${k + 1}层 ${x.toFixed(2)}`).join('、')}`);
@@ -87,7 +106,7 @@ function study(S, name, rng) {
 }
 
 /** 每层学到的结构：物体内绑定、物体间正向（X→Y）与反向（Y→X）、反馈指向（同一物体 vs 另一物体） */
-function structure(S) {
+export function structure(S) {
   const blk = (a) => (a < 4 * cfg.M ? Math.floor(a / cfg.M) : -1);
   return S.layers.map((L) => {
     const m = (g, from, to, preL, postL) => { let s = 0, n = 0; for (let k = 0; k < g.pre.length; k++) { const a = preL.indexOf(g.pre[k]), b = postL.indexOf(g.post[k]); if (a < 0 || b < 0) continue; if (from.includes(blk(a)) && to.includes(blk(b))) { s += g.rho[k]; n++; } } return n ? s / n : 0; };
@@ -99,16 +118,16 @@ function structure(S) {
   });
 }
 
-export function runHierarchy({ log: logTo = console.log, figures = true } = {}) {
+export function runHierarchy({ log: logTo = console.log, figures = true, arch = 'point' } = {}) {
 log = logTo;
 const rng = makeRng(77), results = [];
-const stacks = [1, 2, 3, 4].map((k) => { const S = trainedStack(k, { log }); log(`${k} 层网络就绪（${el()}）`); return S; });
+const stacks = [1, 2, 3, 4].map((k) => { const S = trainedStack(k, { arch, log }); log(`${k} 层网络就绪（${el()}）`); return S; });
 const st = structure(stacks[3]);
 log(`\n学到的结构（4 层网络）：${st.map((s, k) => `第${k + 1}层 物体内 ${s.within.toFixed(2)}，X→Y ${s.fwd.toFixed(2)}，Y→X ${s.bwd.toFixed(2)}${s.fbSame !== undefined ? `，反馈 同物体 ${s.fbSame.toFixed(2)} / 跨物体 ${s.fbCross.toFixed(2)}` : ''}`).join('；')}`);
 for (const S of stacks) results.push(study(S, `${S.layers.length} 层`, rng));
-const cut = trainedStack(2); cut.layers[1].FB.scale.fill(0);
+const cut = trainedStack(2, { arch }); cut.layers[1].FB.scale.fill(0);
 results.push(study(cut, '2 层，切断反馈', rng));
-results.push(study(trainedStack(2, { variant: 'noseq', log }), '2 层，上层没经历物体序列', rng));
+results.push(study(trainedStack(2, { arch, variant: 'noseq', log }), '2 层，上层没经历物体序列', rng));
 const [r1, r2, r3, r4, rCut, rNo] = results;
 if (!figures) return { structure: st, results };
 log(`\n预测本身的作用（2 层减去"上层没经历物体序列"）：第二层 Y 的组 +${(r2.pred[1] - rNo.pred[1]).toFixed(1)} Hz；第一层 Y 的组膜电位 +${(r2.vMean - rNo.vMean).toFixed(2)} mV（平均）；Y 到来时第一层早期响应 ${(r2.facil - rNo.facil).toFixed(1)} Hz；想象时第一层 Y 的组膜电位 +${(r2.imagery.vY - rNo.imagery.vY).toFixed(2)} mV`);
@@ -117,9 +136,10 @@ log(`\n预测本身的作用（2 层减去"上层没经历物体序列"）：第
 fs.mkdirSync('figures', { recursive: true });
 const cv = new Canvas(1500, 860);
 const lineSeries = (arr, x0, y0, w, h, lo, hi, col, width = 2, dashed = false) => { for (let i = 1; i < arr.length; i++) { if (dashed && i % 4 < 2) continue; const y = (v) => y0 + h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * h; cv.line(x0 + ((i - 1) / arr.length) * w, y(arr[i - 1]), x0 + (i / arr.length) * w, y(arr[i]), col, width); } };
-cv.text(20, 12, 'SEE X: LAYER 1 Y GROUPS MEMBRANE POTENTIAL', [0, 0, 0], 2);
+const vKey = arch === 'apical' ? 'vdTrace' : 'vTrace';
+cv.text(20, 12, arch === 'apical' ? 'SEE X: LAYER 1 Y GROUPS APICAL DENDRITE POTENTIAL' : 'SEE X: LAYER 1 Y GROUPS MEMBRANE POTENTIAL', [0, 0, 0], 2);
 cv.text(20, 36, 'BLUE = 2 LAYERS  GRAY = NO X-THEN-Y  DASHED = FB CUT  (0-120 MS, X 0-40)', [0, 0, 0], 1);
-const vs = [r2, rNo, rCut].map((r) => r.vTrace.slice(0, 120)), vLo = Math.min(...vs.flat()) - 0.2, vHi = Math.max(...vs.flat()) + 0.2;
+const vs = [r2, rNo, rCut].map((r) => r[vKey].slice(0, 120)), vLo = Math.min(...vs.flat()) - 0.2, vHi = Math.max(...vs.flat()) + 0.2;
 lineSeries(vs[0], 40, 60, 640, 240, vLo, vHi, PALETTE[1], 3); lineSeries(vs[1], 40, 60, 640, 240, vLo, vHi, [150, 150, 150], 3); lineSeries(vs[2], 40, 60, 640, 240, vLo, vHi, [0, 0, 0], 1, true);
 cv.rect(40, 300, 640, 1, [150, 150, 150]); cv.rect(40 + 640 * SEQ_ITEM_UPPER / 120, 60, 1, 240, [200, 200, 200]);
 cv.text(760, 12, 'IMAGINE X (DRIVE LAYER 2 ONLY): LAYER 1 RATES', [0, 0, 0], 2);
@@ -141,10 +161,11 @@ cv.text(760, 374, 'BLUE = INVARIANCE OF TOP LAYER   GREEN = NOISY X ID OF TOP LA
   cv.text(x, 712, lab[i], [0, 0, 0], 1);
 });
 cv.rect(770, 700, 640, 1, [150, 150, 150]);
-cv.save('figures/fig10-hierarchy.png');
-fs.writeFileSync('figures/hierarchy-results.json', JSON.stringify({ structure: st, results: results.map(({ course, vTrace, ...r }) => r) }, null, 1));
-log(`\n写入 figures/fig10-hierarchy.png（${el()}）`);
+const suffix = arch === 'apical' ? '-apical' : '';
+cv.save(`figures/fig10-hierarchy${suffix}.png`);
+fs.writeFileSync(`figures/hierarchy-results${suffix}.json`, JSON.stringify({ arch, structure: st, results: results.map(({ course, ...r }) => ({ ...r, vTrace: r.vTrace.slice(0, 160).map((x) => +x.toFixed(3)), vdTrace: r.vdTrace.slice(0, 160).map((x) => +x.toFixed(3)) })) }));
+log(`\n写入 figures/fig10-hierarchy${suffix}.png（${el()}）`);
 return { structure: st, results };
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) runHierarchy();
+if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) runHierarchy({ arch: process.argv[2] === 'apical' ? 'apical' : 'point' });

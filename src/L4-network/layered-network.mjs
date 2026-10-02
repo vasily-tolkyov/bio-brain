@@ -5,6 +5,8 @@
  *   前馈 ↑：第 k 层兴奋 → 第 k+1 层兴奋，按组对应的拓扑投射（同组概率 ffSame，异组 ffOther），强度固定；
  *          另有第 k 层兴奋 → 第 k+1 层抑制的前馈抑制；
  *   反馈 ↓：第 k+1 层兴奋 → 第 k 层兴奋，随机连接，起点很弱，按钙规则学习（+ 异突触竞争）。
+ * apical：兴奋性神经元带顶树突分区（见 spiking-network.mjs 的 APICAL_DEFAULT），反馈全部落在顶树突上，
+ *   前馈与层内连接落在胞体——反馈只做阈下调制，与胞体输入同时到来时触发树突平台、把放电变成爆发；
  * 上层的异突触预算可以单独设（upperBudget）：上层的吸引子由下层几个吸引子合成，更大，组内连接会占掉更多预算；
  *   真实皮层沿层级往上，锥体神经元的树突棘也越多（Elston 等人的测量）。
  * 连接按层依次生成：K 层网络的前 k 层与 k 层网络的连接完全相同，所以可以逐层训练、逐层加层。 */
@@ -17,7 +19,7 @@ export const LAYER_DEFAULTS = { ffSame: 0.5, ffOther: 0.02, ffScale: 6, ffiP: 0.
 export function buildLayered(nLayers, cfg) {
   const c = { ...LAYER_DEFAULTS, ...cfg };
   const pops = [];
-  for (let k = 1; k <= nLayers; k++) pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300 } }, { name: `I${k}`, n: c.NI, p: { C: 100, tRef: 1 } });
+  for (let k = 1; k <= nLayers; k++) pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300 }, apical: c.apical || undefined }, { name: `I${k}`, n: c.NI, p: { C: 100, tRef: 1 } });
   const net = new SpikingNetwork({ costs: mammalianCosts(), seed: c.seed, plasticity: c.rule, pops });
   const block = (a) => Math.min(Math.floor(a / c.M), c.K);
   const layers = [];
@@ -31,7 +33,7 @@ export function buildLayered(nLayers, cfg) {
       for (let a = 0; a < c.NE; a++) for (let b = 0; b < c.NE; b++) if (net.rng.uniform() < (block(a) === block(b) ? c.ffSame : c.ffOther)) pairs.push([lo.E[a], L.E[b]]);
       L.FF = net.connect({ pairs, contacts: 10, pRelease: 0.3, tauRec: 100, scale: c.ffScale });
       L.FFI = net.connect({ from: `E${k - 1}`, to: `I${k}`, p: c.ffiP, contacts: 10, pRelease: 0.3, scale: c.ffiScale });
-      L.FB = net.connect({ from: `E${k}`, to: `E${k - 1}`, p: c.fbP, contacts: 10, pRelease: 0.3, tauRec: 100, plastic: { sMin: 0, sMax: c.fbMax, rho0: c.fbRho0, accel: 5, budget: c.fbBudget } });
+      L.FB = net.connect({ from: `E${k}`, to: `E${k - 1}`, p: c.fbP, contacts: 10, pRelease: 0.3, tauRec: 100, target: c.apical ? 'apical' : 'soma', plastic: { sMin: 0, sMax: c.fbMax, rho0: c.fbRho0, accel: 5, budget: c.fbBudget } });
     }
     layers.push(L);
   }

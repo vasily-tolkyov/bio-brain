@@ -16,6 +16,14 @@ import { makeRng } from '../core/rng.mjs';
 const norm = ({ tauR, tauD }) => { const tp = (tauR * tauD) / (tauD - tauR) * Math.log(tauD / tauR); return 1 / (Math.exp(-tp / tauD) - Math.exp(-tp / tauR)); };
 const REC = ['AMPA', 'NMDA', 'GABA_A'].map((n) => ({ n, ...RECEPTORS[n], k: norm(RECEPTORS[n]) }));
 
+/** 顶树突分区（锥体细胞的远端树突，Larkum 1999；简化形式取自 Naud & Sprekeler 2018, PNAS）：
+ * Cd dVd/dt = −gLd(Vd−E_L) + gd·[f(Vd)−f(E_L)]⁺ − wd + I_syn,d + I_bAP；τwd dwd/dt = ad(Vd−E_L) − wd；
+ * f(V) = 1/(1+e^{−(V−Ed)/Dd}) 是钙峰非线性：树突电位越过约 −35 mV 就自我放大成平台，wd 让平台在几十毫秒后终止；
+ * 胞体放电后 bapMs 内向树突注入 cd（反传动作电位，约抬高 15 mV）；胞体只经由平台收到 gs·[f(Vd)−f(E_L)]⁺，
+ * 所以树突没有输入时神经元与点神经元完全相同。单位：pF、nS、mV、ms、pA。 */
+export const APICAL_DEFAULT = { Cd: 170, gLd: 24, Ed: -38, Dd: 6, gd: 1200, gs: 700, ad: 20, tauWd: 30, cd: 2600, bapMs: 1 };
+const fCa = (V, a) => 1 / (1 + Math.exp(-(V - a.Ed) / a.Dd));
+
 function poisson(lambda, rng) {
   if (lambda <= 0) return 0;
   const L = Math.exp(-lambda);
@@ -25,7 +33,7 @@ function poisson(lambda, rng) {
 }
 
 export class SpikingNetwork {
-  /** pops: [{ name, n, p: LIF 参数 }]；costs: 第 1 层标定的 { atpPerSpike, atpRestPerMs } */
+  /** pops: [{ name, n, p: LIF 参数, apical: 顶树突参数（true = APICAL_DEFAULT；不给 = 点神经元） }]；costs: 第 1 层标定的 { atpPerSpike, atpRestPerMs } */
   constructor({ pops, costs, seed = 1, dt = 0.1, plasticity = {} }) {
     this.dt = dt;
     this.rng = makeRng(seed);
@@ -52,6 +60,16 @@ export class SpikingNetwork {
     this.t = 0;
     this.spikes = Array.from({ length: N }, () => []);
     this.idx = (name) => { const q = this.pops[name]; return Array.from({ length: q.n }, (_, k) => q.start + k); };
+    if (pops.some((p) => p.apical)) {
+      this.ap = new Array(N).fill(null);
+      for (const p of pops) if (p.apical) {
+        const a = { ...APICAL_DEFAULT, ...(p.apical === true ? {} : p.apical) }, q = this.pops[p.name];
+        a.f0 = fCa(q.p.EL, a);
+        for (let k = 0; k < q.n; k++) this.ap[q.start + k] = a;
+      }
+      this.Vd = Float64Array.from(this.par, (q) => q.EL); this.wd = new Float64Array(N); this.bapUntil = new Float64Array(N).fill(-Infinity);
+      this.dra = REC.map(() => new Float64Array(N)); this.drb = REC.map(() => new Float64Array(N));
+    }
   }
 
   /** 随机连接一组突触。plastic: { sMin, sMax, rho0, accel, budget } 给定时这组突触按钙规则学习；
@@ -60,12 +78,13 @@ export class SpikingNetwork {
    * istdp: { eta, target, tau, wMax } 给定时（抑制性突触）按 Vogels 等 2011 的抑制性可塑性学习：
    *   突触前抑制性神经元放电时 w += η(y_post − α)，突触后兴奋性神经元放电时 w += η·x_pre，α = 2·目标频率·τ——
    *   突触后放电高于目标频率时抑制变强，低于时变弱，局部地维持兴奋/抑制平衡 */
-  connect({ from, to, p = 1, contacts = 5, pRelease = 0.3, tauRec = 100, scale = 1, kind = 'exc', plastic = null, istdp = null, pairs = null, autapses = false }) {
+  connect({ from, to, p = 1, contacts = 5, pRelease = 0.3, tauRec = 100, scale = 1, kind = 'exc', plastic = null, istdp = null, pairs = null, autapses = false, target = 'soma' }) {
     const pre = [], post = [];
     if (pairs) for (const [a, b] of pairs) { pre.push(a); post.push(b); }
     else for (const a of this.idx(from)) for (const b of this.idx(to)) if ((autapses || a !== b) && this.rng.uniform() < p) { pre.push(a); post.push(b); }
     const n = pre.length;
-    const g = { kind, contacts, pRelease, tauRec, pre: Int32Array.from(pre), post: Int32Array.from(post), R: new Float64Array(this.N).fill(1), plastic,
+    if (target === 'apical' && post.some((b) => !this.ap?.[b])) throw new Error('落在顶树突的突触，突触后神经元必须有顶树突分区');
+    const g = { kind, target, contacts, pRelease, tauRec, pre: Int32Array.from(pre), post: Int32Array.from(post), R: new Float64Array(this.N).fill(1), plastic,
       rho: plastic ? new Float64Array(n).fill(plastic.rho0 ?? 0.5) : null, scale: new Float64Array(n).fill(scale) };
     if (plastic) {
       for (let k = 0; k < n; k++) g.scale[k] = plastic.sMin + (plastic.sMax - plastic.sMin) * g.rho[k];
@@ -132,6 +151,26 @@ export class SpikingNetwork {
           I += iq;
           if (iq > 0) { const ions = ionsFromFemtoCoulomb(iq * dt); ledger.add('drive', ions * REC[q].na * ATP_PER_NA + (ions * REC[q].ca / 2) * ATP_PER_CA); }
         }
+        // 顶树突：自己的受体电流（NMDA 的镁阻断按树突电位）、钙峰非线性、反传动作电位；只经由平台电流影响胞体
+        const a = this.ap?.[i];
+        if (a) {
+          const Vd = this.Vd[i], Bd = mgBlock(Vd);
+          let Id = t < this.bapUntil[i] ? a.cd : 0;
+          for (let q = 0; q < 3; q++) {
+            this.dra[q][i] *= dAd[q]; this.drb[q][i] *= dAr[q];
+            const gq = Math.max(0, this.dra[q][i] - this.drb[q][i]) * (REC[q].mg ? Bd : 1);
+            if (gq === 0) continue;
+            const iq = gq * (REC[q].E - Vd);
+            Id += iq;
+            const fC = Math.abs(iq) * dt;
+            if (REC[q].cl) { if (Vd > REC[q].E) ledger.add('syn_post', ionsFromFemtoCoulomb(fC) * ATP_PER_CL); }
+            else if (iq > 0) { const ions = ionsFromFemtoCoulomb(fC); ledger.add('syn_post', ions * REC[q].na * ATP_PER_NA + (ions * REC[q].ca / 2) * ATP_PER_CA); }
+          }
+          const plateau = Math.max(0, fCa(Vd, a) - a.f0), EL = this.par[i].EL;
+          this.wd[i] += (dt * (a.ad * (Vd - EL) - this.wd[i])) / a.tauWd;
+          this.Vd[i] = Vd + (dt * (-a.gLd * (Vd - EL) + a.gd * plateau - this.wd[i] + Id)) / a.Cd;
+          I += a.gs * plateau;
+        }
         // 第 1 层 LIF（与 LIFNeuron.step 同式同序）
         const p = this.par[i];
         ledger.add('rest', costs.atpRestPerMs * dt);
@@ -143,6 +182,7 @@ export class SpikingNetwork {
           this.V[i] = p.Vreset; this.w[i] += p.b; this.ref[i] = t + dt + p.tRef;
           fired[i] = 1; this.spikes[i].push(t + dt);
           ledger.add('spike', costs.atpPerSpike);
+          if (a) this.bapUntil[i] = t + dt + a.bapMs;
         }
       }
       // 突触前放电 → 释放囊泡、给突触后加电导；钙迹
@@ -155,8 +195,9 @@ export class SpikingNetwork {
           const ves = g.contacts * g.pRelease * g.R[j];
           if (!done.has(o[m])) { done.add(o[m]); }
           const i = g.post[k], s = ves * g.scale[k];
-          if (g.kind === 'exc') for (let q = 0; q < 2; q++) { const v = s * REC[q].q * REC[q].k; this.ra[q][i] += v; this.rb[q][i] += v; }
-          else { const v = s * REC[2].q * REC[2].k; this.ra[2][i] += v; this.rb[2][i] += v; }
+          const A = g.target === 'apical' ? this.dra : this.ra, Bq = g.target === 'apical' ? this.drb : this.rb;
+          if (g.kind === 'exc') for (let q = 0; q < 2; q++) { const v = s * REC[q].q * REC[q].k; A[q][i] += v; Bq[q][i] += v; }
+          else { const v = s * REC[2].q * REC[2].k; A[2][i] += v; Bq[2][i] += v; }
           ledger.add('syn_pre', ves * PRE_ATP_PER_VESICLE);
         }
         for (const gi of done) { const g = this.groups[gi]; g.R[j] = Math.max(0, g.R[j] - g.pRelease * g.R[j]); }
