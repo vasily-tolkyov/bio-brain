@@ -15,7 +15,7 @@ import { makeRng } from '../src/core/rng.mjs';
 //   测试时把学到的递归放大 1.5 倍出现可用的工作点（补全 +1.9 Hz、方向 +2.5 Hz，自发与异步保住），2 倍时整网变活跃、方向失去特异，2.5 倍才失控
 export const BAL = {
   ...cfg, NE: 400, NI: 100, K: 4, M: 80, pConn: 0.1, pEI: 0.2, pIE: 0.4, pII: 0.4, ieKind: 'inhFast',
-  sEI: 1.5, sie: 4, sII: 4, bg: 28, bgI: 12, eTarget: 3, ieMax: 40, apical: false, deep: false,
+  sEI: 1.5, sie: 4, sII: 4, bg: 28, bgI: 12, eTarget: 3, ieMax: 40, apical: false,
   sMax: Number(process.env.BAL_SMAX ?? 9),
   // 抑制性可塑性的学习率（上限 9 时扫描；补全 = 没给输入的成员比组外高，方向 = 给 A 后 D 组比对照 B 组高）：
   //   0.05（与旧网络相同）补全 +1.1 Hz、方向 +1.9 Hz——稳态在同一段训练里同步加强抑制，抵消一部分学到的递归增益；

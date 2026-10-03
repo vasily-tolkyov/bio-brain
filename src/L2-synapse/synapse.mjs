@@ -8,7 +8,7 @@ export const RECEPTORS = {
   AMPA: { tauR: 0.2, tauD: 2, E: 0, q: 0.3, na: 1, ca: 0 },
   NMDA: { tauR: 2, tauD: 40, E: 0, q: 0.15, na: 0.9, ca: 0.1, mg: true },
   GABA_A: { tauR: 0.5, tauD: 10, E: -75, q: 0.5, cl: 1 },
-  // 快速的 GABA_A：快放电篮状细胞（PV）落在胞体周围的突触，衰减只有几毫秒（Bartos 等 2007）——γ 节律靠它把每次齐放后的抑制压短
+  // 快速的 GABA_A：快放电篮状细胞（PV）落在胞体周围的突触，衰减只有几毫秒（Bartos 等 2007）；平衡态网络的抑制用它
   GABA_A_fast: { tauR: 0.3, tauD: 4, E: -75, q: 0.5, cl: 1 },
 };
 export const PRE_ATP_PER_VESICLE = 2.3e4;
