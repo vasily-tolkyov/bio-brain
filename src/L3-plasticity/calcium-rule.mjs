@@ -14,6 +14,11 @@ export const GB_DP = { tauCa: 20, Cpre: 1, Cpost: 2, thetaD: 1, thetaP: 1.3, gam
  * GB_DP 是为一对一配对实验拟合的：单个突触后脉冲的钙（2）就超过 θp，放进网络后任何放电神经元的全部输入都被推到 ρ ≈ 0.5，组内组间分不开 */
 export const GB_NMDA = { ...GB_DP, Cpre: 0.8, Cpost: 1.0, eta: 2 };
 
+/** 电压依赖版：突触前经 NMDA 带来的那份钙乘以突触后此刻的镁解阻断 B(V)/B(Vref)（Vref = −50 mV，即阈值附近时与 GB_NMDA 相同）。
+ * 静息 −65 mV 时只有 0.43 倍：突触后不去极化，突触前放得再高，钙也越不过阈值——增强需要突触后一起去极化（协同性）；
+ * 顶树突处于平台（约 −35 mV）时是 2.9 倍。GB_NMDA 的突触前钙不看电压，深层放到 90 Hz 以上时任何突触后的输入一律增强 */
+export const GB_NMDA_V = { ...GB_NMDA, vdep: true, Vref: -50 };
+
 export class CalciumPlasticity {
   constructor(p = {}, { rho0 = 0.5, accel = 1 } = {}) {
     this.p = { ...GB_DP, ...p };

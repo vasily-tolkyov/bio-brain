@@ -19,30 +19,48 @@ const at = (ids, hz) => new Map(ids.map((i) => [i, hz]));
 const Xs = at(OBJ.X.flatMap(proto), cfg.seqStim), Ys = at(OBJ.Y.flatMap(proto), cfg.seqStim);
 
 /** segments 重复 reps 次：各层浅层 / 深层各组 5 ms 分箱的放电率，第一层浅层某些组的顶树突与胞体平均电位（1 ms），某窗口内的首个脉冲延迟 */
+// 对照组：第一层浅层里不属于任何基本项的 20 个神经元——反馈若只是"有东西在"的广播，它们的顶树突也会被抬高
+const CTRL = Array.from({ length: cfg.NE - cfg.K * cfg.M }, (_, i) => cfg.K * cfg.M + i);
 function trial(S, segments, { reps = 12, vGroups = YB, win = null } = {}) {
   const total = segments.reduce((s, [ms]) => s + ms, 0), nb = total / BIN;
   const course = S.layers.map(() => ({ E: BL.map(() => new Float64Array(nb)), D: BL.map(() => new Float64Array(nb)) }));
-  const vd = new Float64Array(total), vs = new Float64Array(total), vIds = vGroups.flatMap((q) => proto(BL[q]).map((a) => S.layers[0].E[a]));
+  const vd = new Float64Array(total), vs = new Float64Array(total), vdC = new Float64Array(total);
+  const vIds = vGroups.flatMap((q) => proto(BL[q]).map((a) => S.layers[0].E[a])), cIds = CTRL.map((a) => S.layers[0].E[a]);
   const lats = []; let fired = 0;
   for (let r = 0; r < reps; r++) {
     S.net.run(400, { rate: inputRate(S), learn: false });
     const ts = S.net.t; let step = 0;
-    const onStep = () => { if (step++ % 10) return; const ms = step / 10 | 0; if (ms < total) { vd[ms] += mean(vIds.map((i) => S.net.Vd[i])) / reps; vs[ms] += mean(vIds.map((i) => S.net.V[i])) / reps; } };
+    const onStep = () => { if (step++ % 10) return; const ms = step / 10 | 0; if (ms < total) { vd[ms] += mean(vIds.map((i) => S.net.Vd[i])) / reps; vs[ms] += mean(vIds.map((i) => S.net.V[i])) / reps; vdC[ms] += mean(cIds.map((i) => S.net.Vd[i])) / reps; } };
     for (const [ms, d] of segments) S.net.run(ms, { rate: inputRate(S, d), learn: false, onStep });
     S.layers.forEach((L, k) => { for (const pop of ['E', 'D']) BL.forEach((_, q) => spikesIn(S.net, proto(BL[q]).map((a) => L[pop][a]), ts, ts + total).forEach((s) => s.forEach((t) => (course[k][pop][q][Math.floor((t - ts) / BIN)] += 1 / (20 * BIN / 1000) / reps)))); });
     if (win) for (const s of spikesIn(S.net, vIds, ts + win[0], ts + win[1])) if (s.length) { fired++; lats.push(s[0] - ts - win[0]); }
   }
-  return { course, vd: Array.from(vd), vs: Array.from(vs), latency: lats.length ? mean(lats) : null, firing: fired / (reps * vIds.length) };
+  return { course, vd: Array.from(vd), vs: Array.from(vs), vdC: Array.from(vdC), latency: lats.length ? mean(lats) : null, firing: fired / (reps * vIds.length) };
 }
 const avg = (arr, a, b) => mean(Array.from(arr).slice(a / BIN, b / BIN));
 const grp = (c, qs, a, b) => mean(qs.map((q) => avg(c[q], a, b)));
+/** 深层各组在 20 ms 窗口里的最高放电率 */
+const peak = (c) => Math.max(...BL.map((_, q) => { let m = 0; for (let b = 0; b + 4 <= c[q].length; b++) m = Math.max(m, mean(Array.from(c[q]).slice(b, b + 4))); return m; }));
+
+/** 反馈的物体级强度：每个突触后神经元从某物体的深层神经元收到的 scale 之和，按突触后物体平均 */
+function objDrive(S, g, preL, postL, postPop) {
+  const loc = new Map(), objOf = (a) => { const b = Math.floor(a / cfg.M); return XB.includes(b) ? 'X' : YB.includes(b) ? 'Y' : null; };
+  preL.D.forEach((i, a) => loc.set(i, objOf(a)));
+  const post = new Map(); postL[postPop].forEach((i, a) => post.set(i, objOf(a)));
+  const sum = {}, n = { X: 0, Y: 0 };
+  for (const o of post.values()) if (o) n[o]++;
+  for (let s = 0; s < g.pre.length; s++) { const a = loc.get(g.pre[s]), b = post.get(g.post[s]); if (a && b) sum[a + b] = (sum[a + b] ?? 0) + g.scale[s]; }
+  return Object.fromEntries(['XX', 'XY', 'YY', 'YX'].map((k) => [k, +((sum[k] ?? 0) / n[k[1]]).toFixed(1)]));
+}
 
 function study(S, name) {
   const T = cfg.seqItemMs, K = S.layers.length;
   const rest = trial(S, [[200, new Map()]], { reps: 4 });
-  const vd0 = mean(rest.vd), vs0 = mean(rest.vs);
+  const vd0 = mean(rest.vd), vs0 = mean(rest.vs), vdC0 = mean(rest.vdC);
   const P = trial(S, [[T, Xs], [200 - T, new Map()]], { reps: 16 });
   const F = trial(S, [[T, Xs], [40, Ys], [160 - T, new Map()]], { win: [T, T + 60] });
+  // Y 晚一点出现（X 结束后空 20 / 40 ms：避开第一层在 40–60 ms 的反弹齐放；空 120 ms：Y 在 160 ms 出现，正是深层预测最强的时候）
+  const late = [20, 40, 120].map((gap) => { const t = trial(S, [[T, Xs], [gap, new Map()], [40, Ys], [60, new Map()]], { reps: 8, win: [T + gap, T + gap + 60] }); return { gap, latency: t.latency, firing: t.firing }; });
   const N = trial(S, [[T, new Map()], [40, Ys], [160 - T, new Map()]], { win: [T, T + 60] });
   const rng = makeRng(9), A10 = at(rng.shuffle(proto(OBJ.X[0]).slice()).slice(0, 10), cfg.stim);
   const W = trial(S, [[150, A10], [50, new Map()]], { reps: 8, vGroups: [BL.indexOf(OBJ.X[1])] });
@@ -52,15 +70,24 @@ function study(S, name) {
     deepY: S.layers.map((_, k) => grp(P.course[k].D, YB, 0, 120)), deepX: S.layers.map((_, k) => grp(P.course[k].D, XB, 0, 120)),
     surfY: S.layers.map((_, k) => grp(P.course[k].E, YB, 0, 120)),
     vdY: mean(P.vd.slice(10, 120)) - vd0, vdYat40: mean(P.vd.slice(30, 50)) - vd0, vsY: mean(P.vs.slice(10, 120)) - vs0,
-    latExp: F.latency, latNo: N.latency, fireExp: F.firing, fireNo: N.firing,
+    vdCtrl: mean(P.vdC.slice(10, 120)) - vdC0,
+    // 深层的预测要经 NMDA 慢慢积起来，最强在 120–200 ms
+    deepYlate: S.layers.map((_, k) => grp(P.course[k].D, YB, 120, 200)), vdYlate: mean(P.vd.slice(120, 200)) - vd0, vdCtrlLate: mean(P.vdC.slice(120, 200)) - vdC0,
+    peakDeep: S.layers.map((_, k) => peak(P.course[k].D)),
+    fb: K > 1 ? { FBA: objDrive(S, S.layers[1].FBA, S.layers[1], S.layers[0], 'E'), FBD: objDrive(S, S.layers[1].FBD, S.layers[1], S.layers[0], 'D') } : null,
+    latExp: F.latency, latNo: N.latency, fireExp: F.firing, fireNo: N.firing, late,
     earlyExp: grp(F.course[0].E, YB, T, T + 20), earlyNo: grp(N.course[0].E, YB, T, T + 20),
     within: { deep: grp(W.course[0].D, [BL.indexOf(OBJ.X[1])], 0, 150), surf: grp(W.course[0].E, [BL.indexOf(OBJ.X[1])], 0, 150), vd: mean(W.vd.slice(10, 150)) - mean(wRest.vd) },
     vdTrace: P.vd.slice(0, 160).map((v) => +(v - vd0).toFixed(3)), course: P.course,
   };
   log(`\n【${name}】`);
   log(`  只给 40 ms 的 X（0–120 ms）：深层 Y 的组 ${r.deepY.map((v, k) => `第${k + 1}层 ${v.toFixed(1)}`).join('、')} Hz；深层 X 的组 ${r.deepX.map((v, k) => `第${k + 1}层 ${v.toFixed(1)}`).join('、')} Hz；浅层 Y 的组 ${r.surfY.map((v, k) => `第${k + 1}层 ${v.toFixed(1)}`).join('、')} Hz`);
-  log(`  第一层浅层 Y 的组：顶树突比静息高 ${r.vdY.toFixed(2)} mV（10–120 ms 平均），30–50 ms ${r.vdYat40.toFixed(2)} mV；胞体 ${r.vsY.toFixed(2)} mV`);
+  log(`  第一层浅层 Y 的组：顶树突比静息高 ${r.vdY.toFixed(2)} mV（10–120 ms 平均），30–50 ms ${r.vdYat40.toFixed(2)} mV；胞体 ${r.vsY.toFixed(2)} mV；对照组顶树突 ${r.vdCtrl.toFixed(2)} mV（Y 减对照 ${(r.vdY - r.vdCtrl).toFixed(2)} mV）`);
+  log(`  深层峰值（20 ms 窗口）：${r.peakDeep.map((v, k) => `第${k + 1}层 ${v.toFixed(0)}`).join('、')} Hz`);
+  log(`  120–200 ms：深层 Y 的组 ${r.deepYlate.map((v, k) => `第${k + 1}层 ${v.toFixed(1)}`).join('、')} Hz；第一层浅层 Y 的组顶树突 ${r.vdYlate.toFixed(2)} mV、对照组 ${r.vdCtrlLate.toFixed(2)} mV（Y 减对照 ${(r.vdYlate - r.vdCtrlLate).toFixed(2)} mV）`);
+  if (r.fb) log(`  反馈的物体级强度（发出→收到）：FBA ${Object.entries(r.fb.FBA).map(([k, v]) => `${k[0]}→${k[1]} ${v}`).join('  ')}；FBD ${Object.entries(r.fb.FBD).map(([k, v]) => `${k[0]}→${k[1]} ${v}`).join('  ')}`);
   log(`  Y 紧跟 X：首个脉冲延迟 ${r.latExp?.toFixed(1)} ms、头 20 ms ${r.earlyExp.toFixed(1)} Hz、放电神经元 ${(r.fireExp * 100).toFixed(0)}%；空白之后 Y：${r.latNo?.toFixed(1)} ms、${r.earlyNo.toFixed(1)} Hz、${(r.fireNo * 100).toFixed(0)}%`);
+  log(`  Y 晚出现：${r.late.map((l) => `X 后空 ${l.gap} ms → 首个脉冲 ${l.latency?.toFixed(1)} ms、放电 ${(l.firing * 100).toFixed(0)}%`).join('；')}`);
   log(`  第一层自己的深层（只给 ${OBJ.X[0]} 的 10 个）：深层 ${OBJ.X[1]} 组 ${r.within.deep.toFixed(1)} Hz，浅层 ${OBJ.X[1]} 组 ${r.within.surf.toFixed(1)} Hz，浅层 ${OBJ.X[1]} 组顶树突比静息高 ${r.within.vd.toFixed(2)} mV`);
   return r;
 }
@@ -71,7 +98,9 @@ export function runDeep({ arch = 'deep' } = {}) {
   nets.push(['2 层，切断深层发出的反馈', cut]);
   const res = nets.map(([n, S]) => study(S, n));
   const [r1, r2, rNo, rCut] = res;
-  log(`\n预测本身的作用（2 层减去没经历序列）：第二层深层 Y 的组 +${(r2.deepY[1] - rNo.deepY[1]).toFixed(1)} Hz，第一层深层 Y 的组 +${(r2.deepY[0] - rNo.deepY[0]).toFixed(1)} Hz，第一层浅层 Y 的组顶树突 +${(r2.vdY - rNo.vdY).toFixed(2)} mV（30–50 ms +${(r2.vdYat40 - rNo.vdYat40).toFixed(2)} mV），Y 紧跟 X 时首个脉冲早 ${(rNo.latExp - r2.latExp).toFixed(1)} ms`);
+  log(`\n预测本身的作用（2 层减去没经历序列）：第二层深层 Y 的组 +${(r2.deepY[1] - rNo.deepY[1]).toFixed(1)} Hz，第一层深层 Y 的组 +${(r2.deepY[0] - rNo.deepY[0]).toFixed(1)} Hz，第一层浅层 Y 的组顶树突 +${(r2.vdY - rNo.vdY).toFixed(2)} mV（30–50 ms +${(r2.vdYat40 - rNo.vdYat40).toFixed(2)} mV；减去对照组后 +${(r2.vdY - r2.vdCtrl - (rNo.vdY - rNo.vdCtrl)).toFixed(2)} mV），Y 紧跟 X 时首个脉冲早 ${(rNo.latExp - r2.latExp).toFixed(1)} ms、放电比例 ${((r2.fireExp - rNo.fireExp) * 100).toFixed(0)} 个百分点`);
+  const l2 = r2.late.at(-1), lNo = rNo.late.at(-1);
+  log(`  120–200 ms：第二层深层 Y 的组 +${(r2.deepYlate[1] - rNo.deepYlate[1]).toFixed(1)} Hz，第一层深层 Y 的组 +${(r2.deepYlate[0] - rNo.deepYlate[0]).toFixed(1)} Hz，第一层浅层 Y 的组顶树突（减对照）+${(r2.vdYlate - r2.vdCtrlLate - (rNo.vdYlate - rNo.vdCtrlLate)).toFixed(2)} mV；Y 在 160 ms 出现时首个脉冲早 ${(lNo.latency - l2.latency).toFixed(1)} ms、放电比例 ${((l2.firing - lNo.firing) * 100).toFixed(0)} 个百分点`);
 
   // 图 12：左上 = 2 层网络只给 X 时各群的时间进程；右上 = 第一层浅层 Y 的组顶树突；下 = 预测沿通路传递的强度与易化
   fs.mkdirSync('figures', { recursive: true });
