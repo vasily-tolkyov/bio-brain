@@ -73,8 +73,10 @@ export class SpikingNetwork {
     }
   }
 
-  /** 随机连接一组突触。plastic: { sMin, sMax, rho0, accel, budget } 给定时这组突触按钙规则学习；
+  /** 随机连接一组突触。plastic: { sMin, sMax, rho0, accel, budget, tauN } 给定时这组突触按钙规则学习；
    *   budget 给定时加异突触竞争：每 10 ms，一个神经元的输入突触平均效能超过 budget 就把全部输入等量下调（总量有限，强了一部分、别的就得弱）；
+   *   tauN 给定时这组突触"先前后后"的配对窗口（突触前放电后 NMDA 受体保持结合的时间）改为 tauN ms，同时检测的增益按 τN/tauN 缩小，
+   *   持续的共同放电补进的钙不变，只是相隔更久的"前一个先、后一个后"也能配上；
    * kind：'exc'（AMPA + NMDA）、'nmda'（只有 NMDA：慢、电压依赖，可维持持续活动）、'inh'（GABA_A）、'inhFast'（快速 GABA_A，篮状细胞式）；
    * 返回的组上设 frozen = true 时这组突触暂停学习（其余组不受影响，逐拍结果与不设时相同）；
    * istdp: { eta, target, tau, wMax } 给定时（抑制性突触）按 Vogels 等 2011 的抑制性可塑性学习：
@@ -95,6 +97,7 @@ export class SpikingNetwork {
       g.incP = Array.from({ length: this.N }, () => []);
       for (let k = 0; k < n; k++) g.incP[post[k]].push(k);
       this.nmda ??= new Float64Array(this.N);
+      if (plastic.tauN) g.nm = new Float64Array(this.N);
     }
     if (istdp) {
       g.istdp = { eta: 0.02, target: 5, tau: 20, wMax: 20, ...istdp };
@@ -221,11 +224,13 @@ export class SpikingNetwork {
       // NMDA 同时检测：突触前放电立刻结合；突触后放电时，每个输入突触按其突触前的结合比例多进一份钙
       if (this.nmda && gb.eta) {
         for (let j = 0; j < N; j++) if (fired[j]) this.nmda[j] += 1;
+        for (const g of this.plastic) if (g.nm) for (let j = 0; j < N; j++) if (fired[j]) g.nm[j] += 1;
         for (const g of this.plastic) {
           if (g.frozen) continue;
+          const tr = g.nm ?? this.nmda, eta = g.nm ? (gb.eta * gb.tauN) / g.plastic.tauN : gb.eta;
           for (let i = 0; i < N; i++) {
             if (!fired[i]) continue;
-            for (const k of g.incP[i]) g.z[k] += gb.eta * gb.Cpre * this.nmda[g.pre[k]];
+            for (const k of g.incP[i]) g.z[k] += eta * gb.Cpre * tr[g.pre[k]];
           }
         }
       }
@@ -261,6 +266,7 @@ export class SpikingNetwork {
         }
       }
       if (this.nmda) { const dN = Math.exp(-dt / gb.tauN); for (let i = 0; i < N; i++) this.nmda[i] *= dN; }
+      for (const g of this.plastic) if (g.nm) { const dG = Math.exp(-dt / g.plastic.tauN); for (let i = 0; i < N; i++) g.nm[i] *= dG; }
       this.t += dt;
       onStep?.(this.t, fired);
     }

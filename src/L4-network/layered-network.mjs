@@ -45,7 +45,8 @@ export function buildLayered(nLayers, cfg) {
   const pc = c.pc ? (c.pcP = { ...PC_DEFAULTS, ...(c.pcOver ?? {}) }) : null;
   const pops = [];
   for (let k = 1; k <= nLayers; k++) {
-    pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300 }, apical: c.apical || undefined }, { name: `I${k}`, n: c.NI, p: c.iP ?? { C: 100, tRef: 1 } });
+    // upperAdapt：上层兴奋性神经元的放电适应（疲劳），例如 { b: 60 }；深的吸引子要靠更强的疲劳才能干净地退场
+    pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300, ...(k > 1 ? c.upperAdapt ?? {} : {}) }, apical: c.apical || undefined }, { name: `I${k}`, n: c.NI, p: c.iP ?? { C: 100, tRef: 1 } });
     if (pc) pops.push({ name: `N${k}`, n: pc.NN, p: pc.nP }, { name: `S${k}`, n: pc.NS, p: pc.sP });
   }
   // 负误差的各群排在所有原有群之后、连接也在原有连接之后生成：不开 pcNeg 时网络逐拍不变，开了也能直接载入原有的训练结果
@@ -62,7 +63,10 @@ export function buildLayered(nLayers, cfg) {
   const layers = [];
   for (let k = 1; k <= nLayers; k++) {
     const L = { k, E: net.idx(`E${k}`), I: net.idx(`I${k}`) };
-    L.EE = net.connect({ from: `E${k}`, to: `E${k}`, p: c.pConn, contacts: c.contacts, pRelease: 0.3, tauRec: 100, plastic: { sMin: 0.1, sMax: c.sMax, rho0: c.rho0, accel: 5, budget: k > 1 ? c.upperBudget ?? c.budget : c.budget } });
+    // 上层（k > 1）：upperGain 把递归突触效能的上下限一起放大（高级区锥体细胞的树突棘更多、更大），吸引子更深；
+    //   upperTauN 加宽递归突触"先前后后"的配对窗口（资格痕迹），让相隔一整项的"X 先、Y 后"也能学进去
+    const ug = k > 1 ? c.upperGain ?? 1 : 1;
+    L.EE = net.connect({ from: `E${k}`, to: `E${k}`, p: c.pConn, contacts: c.contacts, pRelease: 0.3, tauRec: 100, plastic: { sMin: 0.1 * ug, sMax: c.sMax * ug, rho0: c.rho0, accel: 5, budget: k > 1 ? c.upperBudget ?? c.budget : c.budget, ...(k > 1 && c.upperTauN ? { tauN: c.upperTauN } : {}) } });
     L.EI = net.connect({ from: `E${k}`, to: `I${k}`, p: c.pEI ?? 0.5, contacts: 10, pRelease: 0.3, scale: c.sEI ?? 1.5 });
     L.IE = net.connect({ from: `I${k}`, to: `E${k}`, p: c.pIE ?? 0.5, contacts: 10, pRelease: 0.5, tauRec: 300, kind: c.ieKind ?? 'inh', scale: c.sie, istdp: { eta: c.istdpEta, target: c.eTarget ?? 5, wMax: c.ieMax ?? 20 } });
     if (c.pII) L.II = net.connect({ from: `I${k}`, to: `I${k}`, p: c.pII, contacts: 10, pRelease: 0.5, tauRec: 300, kind: c.ieKind ?? 'inh', scale: c.sII ?? 5 });
