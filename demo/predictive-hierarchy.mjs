@@ -20,7 +20,7 @@ export const PC2 = {
   pcOver: JSON.parse(process.env.PCO ?? '{}'),
 };
 const TAG = process.env.PCO ? '-' + process.env.PCO.replace(/[^a-zA-Z0-9.]+/g, '') : '';
-const log = console.log, G = 'ABCD';
+const log = console.log, G = 'ABCD', POPS = ['E', 'N', 'S', 'M', 'V', 'J'];
 const at = (ids, hz) => new Map(ids.map((i) => [i, hz]));
 const rate = (S, ids, t0, t1) => mean(spikesIn(S.net, ids, t0, t1).map((s) => s.length)) / ((t1 - t0) / 1000);
 /** 第 k 层（从 0 起）某个群（E、N、S）里字母 p 的组 */
@@ -39,7 +39,7 @@ export function timeCourse(S, parts, { ms = 200, bin = 25, reps = 6, after = 300
   for (let r = 0; r < reps; r++) {
     const drive = at(parts.flatMap((p) => rng.shuffle(protoB(p).slice()).slice(0, n)), STIM);
     const t0 = run(S, ms, drive);
-    S.layers.forEach((L, k) => ['E', 'N', 'S'].forEach((pop) => G.split('').forEach((p) => {
+    S.layers.forEach((L, k) => POPS.filter((pop) => L[pop]).forEach((pop) => G.split('').forEach((p) => {
       const key = `${pop}${k + 1}${p}`, ids = grp(S, k, pop, p);
       out[key] ??= new Float64Array(nb);
       for (let b = 0; b < nb; b++) out[key][b] += rate(S, ids, t0 + b * bin, t0 + (b + 1) * bin) / reps;
@@ -100,7 +100,7 @@ export function sequenceCourse(S, segments, { bin = 10, reps = 8, after = 400 } 
   for (let r = 0; r < reps; r++) {
     const t0 = S.net.t;
     for (const [parts, d] of segments) run(S, d, at([...parts].flatMap(protoB), STIM));
-    S.layers.forEach((L, k) => ['E', 'N', 'S'].forEach((pop) => G.split('').forEach((p) => {
+    S.layers.forEach((L, k) => POPS.filter((pop) => L[pop]).forEach((pop) => G.split('').forEach((p) => {
       const key = `${pop}${k + 1}${p}`, ids = grp(S, k, pop, p);
       out[key] ??= new Float64Array(nb);
       for (let b = 0; b < nb; b++) out[key][b] += rate(S, ids, t0 + b * bin, t0 + (b + 1) * bin) / reps;

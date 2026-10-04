@@ -34,6 +34,9 @@ export const LAYER_DEFAULTS = { ffSame: 0.5, ffOther: 0.02, ffScale: 6, ffiP: 0.
 export const PC_DEFAULTS = {
   NN: 200, NS: 100, nP: { b: 5, tauW: 200 }, sP: { C: 100, tRef: 2, b: 5, tauW: 200 }, bgN: 14, bgS: 9,
   pEvid: 0.2, sEvid: 3, pPred: 0.5, sPred: 0.5, predU: 0.3, predTau: 100, predEta: 0.02, predTarget: 3, predMax: 30, predTauPre: 200, pTD: 0.3, sTD: 2, tdKind: 'nmda', pUp: 0.2, sUp: 3,
+  // 负误差（pcNeg，实验中）：负误差群 M（预测多于证据时放电）、证据中继 V、上层的组内抑制 J。
+  //   negKind：预测 → 负误差的受体。纠正回路（上层 → M → J → 上层）要比上层吸引子点燃得快：只有 NMDA 时 1.4 倍加深的上层静息时仍 33% 的时间自己亮起来，AMPA + NMDA 时 17%
+  bgM: 12, bgV: 9, bgJ: 9, pVev: 0.2, sVev: 3, pNegI: 0.5, sNegI: 0.5, negEta: 0.02, negTarget: 3, pNegP: 0.3, sNegP: 2, negKind: 'exc', pNegUp: 0.2, sNegUp: 3, pJE: 0.3, sJE: 3,
 };
 
 /** cfg：单层参数（与 demo/fig2-network.mjs 的 CFG 相同：NE、NI、K 组 × M 个神经元、pConn、contacts、sMax、rho0、budget、sie、istdpEta、rule、bg、seed）+ 层间参数 */
@@ -44,6 +47,11 @@ export function buildLayered(nLayers, cfg) {
   for (let k = 1; k <= nLayers; k++) {
     pops.push({ name: `E${k}`, n: c.NE, p: { b: 20, tauW: 300 }, apical: c.apical || undefined }, { name: `I${k}`, n: c.NI, p: c.iP ?? { C: 100, tRef: 1 } });
     if (pc) pops.push({ name: `N${k}`, n: pc.NN, p: pc.nP }, { name: `S${k}`, n: pc.NS, p: pc.sP });
+  }
+  // 负误差的各群排在所有原有群之后、连接也在原有连接之后生成：不开 pcNeg 时网络逐拍不变，开了也能直接载入原有的训练结果
+  if (pc && c.pcNeg) for (let k = 1; k <= nLayers; k++) {
+    pops.push({ name: `M${k}`, n: pc.NN, p: pc.nP }, { name: `V${k}`, n: pc.NS, p: pc.sP });
+    if (k > 1) pops.push({ name: `J${k}`, n: pc.NS, p: pc.sP });
   }
   const net = new SpikingNetwork({ costs: mammalianCosts(), seed: c.seed, plasticity: c.rule, pops });
   // 组：每个群按自己的规模等比例划分成 K 组（组大小 = 群大小 × M / NE），余下的不成组（编号 K）
@@ -74,6 +82,22 @@ export function buildLayered(nLayers, cfg) {
     }
     layers.push(L);
   }
+  /* 负误差：镜像正误差的回路——预测以兴奋到达（上层表征 → 下层负误差群，按组对应），证据以抑制到达（本层表征 → 证据中继 V → 负误差群，按组对应，
+   * 抑制性可塑性学会把"预测与证据都在"时的兴奋抵消掉）。预测在、证据不在时负误差群强烈放电（该来的没来），
+   * 再经上层同一组的抑制性细胞 J 压掉上层被错误预测的那一组：误差往上的作用有了正负两个方向 */
+  if (pc && c.pcNeg) {
+    for (const L of layers) { L.M = net.idx(`M${L.k}`); L.V = net.idx(`V${L.k}`); if (L.k > 1) L.J = net.idx(`J${L.k}`); }
+    for (const L of layers) {
+      L.VEV = net.connect({ pairs: topoN(L.E, L.V, pc.pVev), contacts: 10, pRelease: 0.3, tauRec: 100, scale: pc.sVev });
+      L.NEGI = net.connect({ pairs: topoN(L.V, L.M, pc.pNegI), contacts: 10, pRelease: pc.predU, tauRec: pc.predTau, kind: 'inh', scale: pc.sNegI, istdp: { eta: pc.negEta, target: pc.negTarget, wMax: pc.predMax } });
+      if (L.k > 1) {
+        const lo = layers[L.k - 2];
+        L.NEGP = net.connect({ pairs: topoN(L.E, lo.M, pc.pNegP), contacts: 10, pRelease: 0.3, tauRec: 100, kind: pc.negKind, scale: pc.sNegP });
+        L.NEGUP = net.connect({ pairs: topoN(lo.M, L.J, pc.pNegUp), contacts: 10, pRelease: 0.3, tauRec: 100, scale: pc.sNegUp });
+        L.JE = net.connect({ pairs: topoN(L.J, L.E, pc.pJE), contacts: 10, pRelease: 0.3, tauRec: 100, kind: 'inh', scale: pc.sJE });
+      }
+    }
+  }
   const layerOf = new Int32Array(net.N).fill(-1);
   layers.forEach((L, k) => L.E.forEach((i) => (layerOf[i] = k)));
   return { net, layers, cfg: c, layerOf };
@@ -84,7 +108,7 @@ export function learnOnly(stack, groups) { for (const g of stack.net.groups) g.f
 
 const setRho = (g, rho) => { g.rho.set(rho); const { sMin, sMax } = g.plastic; for (let k = 0; k < rho.length; k++) g.scale[k] = sMin + (sMax - sMin) * g.rho[k]; };
 /** 可学习的状态：每层的兴奋→兴奋效能（EE）、抑制强度（IE）、反馈效能（FB）、预测抑制强度（PRED） */
-const RHO_KEYS = ['EE', 'FB'], SCALE_KEYS = ['IE', 'PRED'];
+const RHO_KEYS = ['EE', 'FB'], SCALE_KEYS = ['IE', 'PRED', 'NEGI'];
 export const saveState = (stack) => stack.layers.map((L) => Object.fromEntries([...RHO_KEYS.filter((key) => L[key]).map((key) => [key, [...L[key].rho]]), ...SCALE_KEYS.filter((key) => L[key]).map((key) => [key, [...L[key].scale]])]));
 export function loadState(stack, state) {
   state.forEach((s, k) => {
@@ -104,6 +128,7 @@ export function inputRate(stack, drives = new Map(), extra = null) {
     L.E.forEach((i, a) => (arr[i] = k === 0 ? drives.get(a) ?? stack.cfg.bg : stack.cfg.bgUpper ?? stack.cfg.bg));
     if (stack.cfg.bgI) for (const i of L.I) arr[i] = stack.cfg.bgI;
     if (pc) { for (const i of L.N) arr[i] = pc.bgN; for (const i of L.S) arr[i] = pc.bgS; }
+    if (L.M) { for (const i of L.M) arr[i] = pc.bgM; for (const i of L.V) arr[i] = pc.bgV; if (L.J) for (const i of L.J) arr[i] = pc.bgJ; }
   });
   if (extra) for (const [i, hz] of extra) arr[i] = hz;
   return (i) => arr[i];
