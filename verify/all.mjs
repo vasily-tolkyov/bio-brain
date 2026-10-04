@@ -1,4 +1,4 @@
-/** 逐层验证：任何一层有未通过的检查即返回非零。FAST=1 跳过脉冲网络的长实验（L4b 约 4 分钟、L4d 约 2 分钟、L4e 约 10 分钟、L4f 约 15 分钟） */
+/** 逐层验证：任何一层有未通过的检查即返回非零。FAST=1 跳过脉冲网络的长实验（L4b 约 4 分钟、L4d 约 2 分钟、L4e 约 10 分钟、L4f 约 25 分钟） */
 import { verifyL1 } from './L1-neuron.mjs';
 import { verifyL2 } from './L2-synapse.mjs';
 import { verifyL3 } from './L3-hebbian.mjs';

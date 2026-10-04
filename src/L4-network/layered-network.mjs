@@ -23,13 +23,17 @@ import { mammalianCosts } from '../L1-neuron/hh.mjs';
 
 export const LAYER_DEFAULTS = { ffSame: 0.5, ffOther: 0.02, ffScale: 6, ffiP: 0.3, ffiScale: 1.5, fbP: 0.3, fbMax: 6, fbRho0: 0.05, fbBudget: 0.15 };
 /** 预测编码各群的规模（组按与表征群同样的比例划分：K 组 + 不成组）、细胞参数、背景、连接。
- * 背景与预测下行强度按平衡态的表征层（demo/balanced-layer.mjs）标定：误差细胞自发约 4 Hz（抑制性可塑性再把它拉向目标 3 Hz），
- * 中继自发约 8 Hz、上层对应组活跃时 20–35 Hz；预测下行 3 时上层自发的 2.6 Hz 就把中继推到 21 Hz、误差全被压住。
+ * 背景与预测下行强度按平衡态的表征层（demo/balanced-layer.mjs）标定：误差细胞自发约 4.5 Hz（抑制性可塑性再把它拉向目标 3 Hz），
+ * 中继自发约 8 Hz、上层对应组活跃时 25–35 Hz；预测下行若与证据一样强，上层自发的 2.6 Hz 就把中继推到 20 Hz 以上、误差全被压住。
  * 中继 → 误差的突触压抑较弱（释放概率 0.3、恢复 100 ms）：SOM 细胞的输出突触不像 PV 那样强烈压抑，持续的预测才不会自己衰减掉。
- * tdKind：预测下行的受体（'exc' = AMPA + NMDA，与其他兴奋性通路相同；'nmda' = 只有 NMDA，自上而下的作用更慢、更持久） */
+ * tdKind：预测下行的受体。'nmda'（只有 NMDA，自上而下的作用主要靠 NMDA，Self 等 2012）让中继比上层表征慢：
+ *   上层从 X 换到 Y 后，X 的中继还要再放 20–30 ms，正好盖住 Y 的误差出现的时刻；'exc'（AMPA + NMDA）时中继 10 ms 内就跟着熄灭。
+ * predTauPre：中继 → 误差的抑制性可塑性在增强一侧用的突触前痕迹（ms）。默认的 20 ms 配对窗口只看"同时"，
+ *   学到的是"X 在场时 Y 不在"（150 ms）压倒"X 刚过 Y 来了"（约 15 ms），序列越练"X 预测 Y"越弱；200 ms 的痕迹把后者记进来。
+ *   兴奋性突触上的资格痕迹有直接证据（几秒，He 等 2015），抑制性突触上还没有直接测到，这里是假设 */
 export const PC_DEFAULTS = {
   NN: 200, NS: 100, nP: { b: 5, tauW: 200 }, sP: { C: 100, tRef: 2, b: 5, tauW: 200 }, bgN: 14, bgS: 9,
-  pEvid: 0.2, sEvid: 3, pPred: 0.5, sPred: 0.5, predU: 0.3, predTau: 100, predEta: 0.02, predTarget: 3, predMax: 30, pTD: 0.3, sTD: 1, tdKind: 'exc', pUp: 0.2, sUp: 3,
+  pEvid: 0.2, sEvid: 3, pPred: 0.5, sPred: 0.5, predU: 0.3, predTau: 100, predEta: 0.02, predTarget: 3, predMax: 30, predTauPre: 200, pTD: 0.3, sTD: 2, tdKind: 'nmda', pUp: 0.2, sUp: 3,
 };
 
 /** cfg：单层参数（与 demo/fig2-network.mjs 的 CFG 相同：NE、NI、K 组 × M 个神经元、pConn、contacts、sMax、rho0、budget、sie、istdpEta、rule、bg、seed）+ 层间参数 */
@@ -57,7 +61,7 @@ export function buildLayered(nLayers, cfg) {
     if (pc) {
       L.N = net.idx(`N${k}`); L.S = net.idx(`S${k}`);
       L.EVID = net.connect({ pairs: topoN(L.E, L.N, pc.pEvid), contacts: 10, pRelease: 0.3, tauRec: 100, scale: pc.sEvid });
-      L.PRED = net.connect({ from: `S${k}`, to: `N${k}`, p: pc.pPred, contacts: 10, pRelease: pc.predU, tauRec: pc.predTau, kind: 'inh', scale: pc.sPred, istdp: { eta: pc.predEta, target: pc.predTarget, wMax: pc.predMax } });
+      L.PRED = net.connect({ from: `S${k}`, to: `N${k}`, p: pc.pPred, contacts: 10, pRelease: pc.predU, tauRec: pc.predTau, kind: 'inh', scale: pc.sPred, istdp: { eta: pc.predEta, target: pc.predTarget, wMax: pc.predMax, ...(pc.predTauPre ? { tauPre: pc.predTauPre } : {}) } });
     }
     if (k > 1) {
       const lo = layers[k - 2];

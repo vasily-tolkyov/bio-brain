@@ -1,10 +1,10 @@
 /** 预测编码的两层：每层 = 表征群（平衡态，吸引子 + 有向通道）+ 误差群 + 预测中继群（见 src/L4-network/layered-network.mjs 的 pc）。
  * 第一层用训练好的平衡层（demo/balanced-layer.mjs，兴奋性连接冻结）；第二层学物体（X = A + D、Y = C + B），
- * 同时第一层的中继 → 误差抑制学习第二层的预测。
+ * 同时第一层的中继 → 误差抑制学习第二层的预测；再经历序列 X → Y，学"X 之后是 Y"。
  * 用法：CALIB=1 node demo/predictive-hierarchy.mjs（未训练的两层标定）；
  *       node demo/predictive-hierarchy.mjs（训练 + 全部检验 → figures/fig12-predictive.png；训练结果缓存到 cache/pc-2.json、pc-2-seq.json）；
  *       FIG=1 node demo/predictive-hierarchy.mjs（只按 figures/predictive-results.json 重画图）；
- *       PCO='{"sTD":2}' 之类覆盖预测编码的参数（缓存与图的文件名带上参数） */
+ *       PCO='{"tdKind":"exc","sTD":1,"predTauPre":0}' 之类覆盖预测编码的参数（这一组是加痕迹与慢中继之前的版本；缓存与图的文件名带上参数） */
 import fs from 'fs';
 import { BAL, STIM, protoB, trainBal } from './balanced-layer.mjs';
 import { mean } from './lib-hierarchy.mjs';
@@ -13,8 +13,8 @@ import { makeRng } from '../src/core/rng.mjs';
 import { Canvas, PALETTE } from '../src/core/png.mjs';
 
 export const OBJ = { X: ['A', 'D'], Y: ['C', 'B'] };
-// 标定（第一层训练好、第二层与预测未学）：第一层自发 E 3.0、误差 4.5、中继 8.4 Hz；呈现 X 时第一层 A 组的中继 21–34 Hz，
-//   第二层 A、D 组 11–23 Hz、B 组 0.3 Hz。层间前馈与上层背景沿用平衡态两层的标定（上层自发 2.6 Hz，对第一层的输入分级响应）
+// 标定（第一层训练好、第二层与预测未学）：第一层自发 E 3.0、误差 4.7、中继 8.3 Hz；呈现 X 时第一层 A 组的中继 27–33 Hz，
+//   第二层 A、D 组 11–22 Hz、B 组 0–0.8 Hz。层间前馈与上层背景沿用平衡态两层的标定（上层自发 2.6 Hz，对第一层的输入分级响应）
 export const PC2 = {
   ...BAL, pc: true, ffSame: 0.1, ffOther: 0.005, ffScale: 6, ffiP: 0.1, ffiScale: 1.5, bgUpper: Number(process.env.BG_UP ?? 18), upperBudget: 0.3,
   pcOver: JSON.parse(process.env.PCO ?? '{}'),
@@ -142,22 +142,37 @@ export function objectTests(S, say = log) {
   return { sp, err, total, sw: { on: swOn, off: swOff }, tc: { famX: keep(famX), cutP: keep(cutP), cutT: keep(cutT), onlyA: keep(onlyA), novel: keep(novel) } };
 }
 
-/** 序列期待：Y 出现后头 50 ms 第一层 Y 的误差（X 之后 vs 空白之后）、X 末尾上层 Y 的组、X 之后 Y 没来时的误差 */
+/** 第一层预测抑制里，从 from 各部分的中继组到 to 各部分的误差组的突触编号 */
+const predPairs = (S, from, to) => {
+  const g = S.layers[0].PRED, a = new Set(from.flatMap((p) => grp(S, 0, 'S', p))), b = new Set(to.flatMap((p) => grp(S, 0, 'N', p))), ks = [];
+  for (let k = 0; k < g.pre.length; k++) if (a.has(g.pre[k]) && b.has(g.post[k])) ks.push(k);
+  return ks;
+};
+
+/** 序列期待。和实验里的做法一样，比较学过的先后（X → Y）与没学过的反向（Y → X）：后一项出现后头 50 ms 它的误差。
+ *  两个物体本身并不完全对称，所以期待 = 经历序列的网络里（反向 − 正向）减去只学物体的网络里的同一个差（见 runPredictive）。
+ *  另把「X 的中继 → Y 的误差细胞」这组突触置零看它们的贡献——这组突触也承担 X 的中继对 Y 的误差细胞的基线抑制，
+ *  只学物体的网络里置零同样有效果，所以也要与只学物体的网络相减。另记：X 之后 Y 没来时 Y 的误差，X 末尾上层 Y 的组 */
 export function sequenceTests(S, name, say = log) {
-  const base = spontaneous(S)[0].N;
-  const xy = sequenceCourse(S, [['AD', 150], ['CB', 150], ['', 200]]), by = sequenceCourse(S, [['', 150], ['CB', 150], ['', 200]]);
-  const xo = sequenceCourse(S, [['AD', 150], ['', 350]]);
-  const Yn = ['N1C', 'N1B'], Ye = ['E2C', 'E2B'];
+  const [L1] = S.layers, base = spontaneous(S)[0].N, g = L1.PRED, kXY = predPairs(S, OBJ.X, OBJ.Y);
+  const cut = (fn) => { const keep = g.scale.slice(); for (const k of kXY) g.scale[k] = 0; try { return fn(); } finally { g.scale.set(keep); } };
+  const XY = [['AD', 150], ['CB', 150], ['', 200]], YX = [['CB', 150], ['AD', 150], ['', 200]], XO = [['AD', 150], ['', 350]];
+  const xy = sequenceCourse(S, XY, { reps: 16 }), yx = sequenceCourse(S, YX, { reps: 16 }), xyCut = cut(() => sequenceCourse(S, XY, { reps: 16 }));
+  const xo = sequenceCourse(S, XO), by = sequenceCourse(S, [['', 150], ['CB', 150], ['', 200]]);
+  const Yn = ['N1C', 'N1B'], Xn = ['N1A', 'N1D'], Ye = ['E2C', 'E2B'], peak = (tc, p, q) => Math.max(...pair(tc, p, q).slice(15, 25));
   const r = {
-    base, afterX: avg(xy, Yn, 15, 20), afterBlank: avg(by, Yn, 15, 20), wholeX: avg(xy, Yn, 15, 30), wholeBlank: avg(by, Yn, 15, 30),
-    preY: avg(xy, Ye, 10, 15), preYBlank: avg(by, Ye, 10, 15), omitN: avg(xo, Yn, 15, 30), omitE: avg(xo, Ye, 15, 30),
-    traceX: pair(xy, 'N1C', 'N1B').slice(12, 27), traceBlank: pair(by, 'N1C', 'N1B').slice(12, 27),
+    base, w: mean(kXY.map((k) => g.scale[k])), wYX: mean(predPairs(S, OBJ.Y, OBJ.X).map((k) => g.scale[k])), wXX: mean(predPairs(S, OBJ.X, OBJ.X).map((k) => g.scale[k])),
+    fwd: avg(xy, Yn, 15, 20), rev: avg(yx, Xn, 15, 20), fwdPeak: peak(xy, 'N1C', 'N1B'), revPeak: peak(yx, 'N1A', 'N1D'),
+    fwdCut: avg(xyCut, Yn, 15, 20), afterBlank: avg(by, Yn, 15, 20), omitN: avg(xo, Yn, 15, 20), preY: avg(xy, Ye, 10, 15),
+    traceX: pair(xy, 'N1C', 'N1B').slice(12, 27), traceRev: pair(yx, 'N1A', 'N1D').slice(12, 27), traceCut: pair(xyCut, 'N1C', 'N1B').slice(12, 27),
   };
-  say(`  【${name}】第一层误差自发 ${base.toFixed(1)} Hz`);
-  say(`    Y 出现后头 50 ms 第一层 Y 的误差：X 之后 ${r.afterX.toFixed(1)}、空白之后 ${r.afterBlank.toFixed(1)} Hz；整段 Y：${r.wholeX.toFixed(1)} / ${r.wholeBlank.toFixed(1)} Hz`);
-  say(`    X 的最后 50 ms 上层 Y 的组 ${r.preY.toFixed(1)} Hz（空白时 ${r.preYBlank.toFixed(1)}）；X 之后 Y 没来（0–150 ms）：第一层 Y 的误差 ${r.omitN.toFixed(1)} Hz，上层 Y 的组 ${r.omitE.toFixed(1)} Hz`);
-  say(`    Y 出现前后每 10 ms（-30 … +110 ms）第一层 Y 的误差：X 之后 ${row(r.traceX)}`);
-  say(`                                              空白之后 ${row(r.traceBlank)}`);
+  r.asym = r.rev - r.fwd; r.cutGain = r.fwdCut - r.fwd;
+  say(`  【${name}】第一层误差自发 ${base.toFixed(1)} Hz；预测抑制：X 的中继 → Y 的误差 ${r.w.toFixed(2)}、Y 的中继 → X 的误差 ${r.wYX.toFixed(2)}、X 的中继 → X 的误差 ${r.wXX.toFixed(2)}`);
+  say(`    后一项出现后头 50 ms 它的误差：X → Y 的 Y ${r.fwd.toFixed(1)} Hz，Y → X 的 X ${r.rev.toFixed(1)} Hz（反向 − 正向 ${r.asym.toFixed(1)}）；10 ms 峰值 ${r.fwdPeak.toFixed(1)} / ${r.revPeak.toFixed(1)} Hz`);
+  say(`    置零「X 的中继 → Y 的误差」后 X → Y 的 Y ${r.fwdCut.toFixed(1)} Hz（升高 ${r.cutGain.toFixed(1)}）；空白之后的 Y ${r.afterBlank.toFixed(1)} Hz；X 之后 Y 没来 ${r.omitN.toFixed(1)} Hz；X 的最后 50 ms 上层 Y 的组 ${r.preY.toFixed(1)} Hz`);
+  say(`    后一项出现前后每 10 ms（-30 … +110 ms）它的误差：X → Y ${row(r.traceX)}`);
+  say(`                                                Y → X ${row(r.traceRev)}`);
+  say(`                                            X → Y 置零 ${row(r.traceCut)}`);
   return r;
 }
 
@@ -167,6 +182,8 @@ export function runPredictive({ log: say = log, figure = true } = {}) {
   say(`  学习曲线（X 引起的第一层误差，50–200 ms，每 25 个物体）：${curve.map((v) => v.toFixed(1)).join(' → ')} Hz`);
   const obj = objectTests(S, say);
   const seq = { obj: sequenceTests(S, '只学物体', say), seq: sequenceTests(Sq, '经历序列', say) };
+  seq.expect = seq.seq.asym - seq.obj.asym; seq.expectCut = seq.seq.cutGain - seq.obj.cutGain;
+  say(`  学到的期待（经历序列 − 只学物体）：反向 − 正向 ${seq.expect.toFixed(1)} Hz；置零「X 的中继 → Y 的误差」的升高 ${seq.expectCut.toFixed(1)} Hz`);
   const res = { cfg: S.cfg.pcP, curve, obj, seq };
   fs.mkdirSync('figures', { recursive: true });
   fs.writeFileSync(`figures/predictive-results${TAG}.json`, JSON.stringify(res));
@@ -199,9 +216,11 @@ function drawPredictive(res, file) {
   bars.forEach(([lab, v, col], k) => { const h = (Math.min(40, v) / 40) * 300, x = 40 + k * 108; cv.rect(x, 720 - h, 80, h, col); cv.text(x, 730, lab, [0, 0, 0], 1); cv.text(x, 700 - h, v.toFixed(1), [0, 0, 0], 1); });
   for (let x = 0; x < 650; x += 8) cv.rect(40 + x, 720 - (o.err.base / 40) * 300, 4, 1, red);
   cv.rect(40, 720, 650, 1, gray);
-  cv.text(760, 372, 'L1 ERROR FOR Y: -30 TO +110 MS AROUND Y ONSET', [0, 0, 0], 2);
-  plot(780, 410, 640, 300, 0, 45, [[res.seq.obj.traceX, gray, true], [res.seq.seq.traceBlank, gray], [res.seq.seq.traceX, blue]], res.seq.seq.base);
-  cv.text(780, 722, 'BLUE = AFTER X (SEQUENCE TRAINED)  GRAY = AFTER BLANK  DASHED = AFTER X (OBJECTS ONLY)', [0, 0, 0], 1);
+  cv.text(760, 372, 'L1 ERROR FOR THE SECOND ITEM: -30 TO +110 MS', [0, 0, 0], 2);
+  const q = res.seq.seq, ob = res.seq.obj;
+  plot(780, 410, 640, 300, 0, 50, [[ob.traceX, gray, true], [ob.traceRev, red, true], [q.traceRev, red], [q.traceX, blue]], q.base);
+  cv.text(780, 722, 'SEQUENCE TRAINED: BLUE = Y AFTER X (LEARNED ORDER)  RED = X AFTER Y (NEVER SEEN)', [0, 0, 0], 1);
+  cv.text(780, 736, `DASHED = SAME IN THE OBJECTS-ONLY NETWORK   LEARNED EXPECTATION ${res.seq.expect.toFixed(1)} HZ`, [0, 0, 0], 1);
   cv.save(file);
 }
 

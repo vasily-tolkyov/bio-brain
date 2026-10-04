@@ -79,7 +79,8 @@ export class SpikingNetwork {
    * 返回的组上设 frozen = true 时这组突触暂停学习（其余组不受影响，逐拍结果与不设时相同）；
    * istdp: { eta, target, tau, wMax } 给定时（抑制性突触）按 Vogels 等 2011 的抑制性可塑性学习：
    *   突触前抑制性神经元放电时 w += η(y_post − α)，突触后兴奋性神经元放电时 w += η·x_pre，α = 2·目标频率·τ——
-   *   突触后放电高于目标频率时抑制变强，低于时变弱，局部地维持兴奋/抑制平衡；抑制最终与兴奋同步起伏（细致平衡），可预期的兴奋被抵消 */
+   *   突触后放电高于目标频率时抑制变强，低于时变弱，局部地维持兴奋/抑制平衡；抑制最终与兴奋同步起伏（细致平衡），可预期的兴奋被抵消。
+   *   tauPre 给定时增强一侧改用更长的突触前痕迹（资格痕迹，几百毫秒），α = 目标频率·(τ + τ_pre) 使不动点仍是目标频率 */
   connect({ from, to, p = 1, contacts = 5, pRelease = 0.3, tauRec = 100, scale = 1, kind = 'exc', plastic = null, istdp = null, pairs = null, autapses = false, target = 'soma' }) {
     const pre = [], post = [];
     if (pairs) for (const [a, b] of pairs) { pre.push(a); post.push(b); }
@@ -101,6 +102,7 @@ export class SpikingNetwork {
       for (let k = 0; k < n; k++) g.inc[post[k]].push(k);
       this.istdpGroups = [...(this.istdpGroups ?? []), g];
       this.xs ??= new Float64Array(this.N); this.ys ??= new Float64Array(this.N);
+      if (g.istdp.tauPre) { this.xsl ??= new Float64Array(this.N); this.tauPreLong = g.istdp.tauPre; }
     }
     const gi = this.groups.push(g) - 1;
     for (let k = 0; k < n; k++) this.out[pre[k]].push(gi, k);
@@ -209,12 +211,13 @@ export class SpikingNetwork {
         this.y[j] += 1;
         if (learn && this.istdpGroups) for (const g of this.istdpGroups) {
           if (g.frozen) continue;
-          const { eta, target, tau, wMax } = g.istdp, alpha = (2 * target * tau) / 1000;
+          const { eta, target, tau, wMax, tauPre } = g.istdp, alpha = (target * (tau + (tauPre ?? tau))) / 1000, xr = tauPre ? this.xsl : this.xs;
           for (let m = 0; m < o.length; m += 2) { if (this.groups[o[m]] !== g) continue; const k = o[m + 1]; g.scale[k] = Math.min(wMax, Math.max(0, g.scale[k] + eta * (this.ys[g.post[k]] - alpha))); }
-          for (const k of g.inc[j]) g.scale[k] = Math.min(wMax, Math.max(0, g.scale[k] + eta * this.xs[g.pre[k]]));
+          for (const k of g.inc[j]) g.scale[k] = Math.min(wMax, Math.max(0, g.scale[k] + eta * xr[g.pre[k]]));
         }
       }
       if (this.xs) { const dI = Math.exp(-dt / (this.istdpGroups[0].istdp.tau)); for (let i = 0; i < N; i++) { if (fired[i]) { this.xs[i] += 1; this.ys[i] += 1; } this.xs[i] *= dI; this.ys[i] *= dI; } }
+      if (this.xsl) { const dL = Math.exp(-dt / this.tauPreLong); for (let i = 0; i < N; i++) { if (fired[i]) this.xsl[i] += 1; this.xsl[i] *= dL; } }
       // NMDA 同时检测：突触前放电立刻结合；突触后放电时，每个输入突触按其突触前的结合比例多进一份钙
       if (this.nmda && gb.eta) {
         for (let j = 0; j < N; j++) if (fired[j]) this.nmda[j] += 1;

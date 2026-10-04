@@ -2,8 +2,10 @@
  *   ① 学习让误差下降；② 熟悉的物体：误差先冲高（上层还没认出），再回到自发水平（被上层的预测解释掉）；
  *   ③ 切断预测抑制或预测下行，误差一直很高；④ 缺一半：缺的那组误差低于自发（该来的没来）；
  *   ⑤ 没见过的组合：解释不掉的部分误差高、被预测而缺的部分低于自发；⑥ 熟悉的输入误差脉冲少；
- *   ⑦ 误差上行：输入换了，上层更完整地改口，下层误差更快消退。序列期待还没做到，只记录数字（见 README"已知缺口"）。
- * 用 cache/ 里训练好的网络，约 10–15 分钟（没有缓存时先训练：平衡层约 9 分钟、第二层约 10 分钟、序列约 11 分钟）。 */
+ *   ⑦ 误差上行：输入换了，上层更完整地改口，下层误差更快消退；
+ *   ⑧ 学到"X 之后是 Y"（X 的中继 → Y 的误差细胞的抑制变强）；⑨ 期待在该出现的时刻表达出来（学过的先后比没学过的反向误差小）；
+ *   ⑩ 该来的没来：X 之后 Y 不来，Y 的误差细胞低于自发。
+ * 用 cache/ 里训练好的网络，约 25 分钟（没有缓存时先训练：平衡层约 9 分钟、第二层约 12 分钟、序列约 15 分钟）。 */
 import { runPredictive } from '../demo/predictive-hierarchy.mjs';
 import { checker, fmt } from '../src/core/check.mjs';
 
@@ -23,7 +25,13 @@ export function verifyL4Predictive({ quiet = false } = {}) {
   c.check('误差上行：输入换成 Y 后上层 Y 的组更强，下层 Y 的误差更快消退', sw.on.y > sw.off.y && sw.on.n < 0.6 * sw.off.n,
     `上层 Y 的组 ${f1(sw.on.y)} / ${f1(sw.off.y)} Hz，换后头 50 ms 下层 Y 的误差 ${f1(sw.on.n)} / ${f1(sw.off.n)} Hz（完整 / 切断误差上行）`);
   const q = r.seq.seq, o = r.seq.obj;
-  c.note(`尚未做到的序列期待（已知缺口）：Y 出现后头 50 ms 第一层 Y 的误差，经历序列 ${f1(q.afterX)} / ${f1(q.afterBlank)} Hz，只学物体 ${f1(o.afterX)} / ${f1(o.afterBlank)} Hz（X 之后 / 空白之后）`);
+  c.check('学到"X 之后是 Y"：X 的中继 → Y 的误差细胞的抑制经历序列后至少翻倍，反向（Y 的中继 → X 的误差）不增加', q.w > 2 * o.w && q.wYX <= o.wYX,
+    `X → Y ${fmt(o.w)} → ${fmt(q.w)}，Y → X ${fmt(o.wYX)} → ${fmt(q.wYX)}（只学物体 → 经历序列）`);
+  c.check('期待在该出现的时刻表达出来：学过的先后（X → Y）后一项的误差比没学过的反向（Y → X）小，减去只学物体的网络里的同一个差仍大于 4 Hz', r.seq.expect > 4,
+    `后一项出现后头 50 ms：经历序列 ${f1(q.fwd)} / ${f1(q.rev)} Hz，只学物体 ${f1(o.fwd)} / ${f1(o.rev)} Hz（X → Y / Y → X），学到的期待 ${f1(r.seq.expect)} Hz`);
+  c.check('该来的没来：经历序列后，X 之后 Y 不来，Y 的误差细胞在头 50 ms 低于自发的三成；只学物体的网络没有', q.omitN < 0.3 * q.base && o.omitN > 0.6 * o.base,
+    `经历序列 ${f1(q.omitN)} Hz（自发 ${f1(q.base)}），只学物体 ${f1(o.omitN)} Hz（自发 ${f1(o.base)}）`);
+  c.note(`期待只是把 Y 的误差推迟、压低，没有消掉：10 ms 分箱的峰值 ${f1(q.fwdPeak)} / ${f1(q.revPeak)} Hz（X → Y / Y → X）；X 的最后 50 ms 上层 Y 的组 ${f1(q.preY)} Hz——上层并不提前转到 Y`);
   return { ok: c.done(), r };
 }
 
