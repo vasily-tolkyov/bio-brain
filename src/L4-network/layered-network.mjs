@@ -37,6 +37,16 @@ export const PC_DEFAULTS = {
   // 负误差（pcNeg，实验中）：负误差群 M（预测多于证据时放电）、证据中继 V、上层的组内抑制 J。
   //   negKind：预测 → 负误差的受体。纠正回路（上层 → M → J → 上层）要比上层吸引子点燃得快：只有 NMDA 时 1.4 倍加深的上层静息时仍 33% 的时间自己亮起来，AMPA + NMDA 时 17%
   bgM: 12, bgV: 9, bgJ: 9, pVev: 0.2, sVev: 3, pNegI: 0.5, sNegI: 0.5, negEta: 0.02, negTarget: 3, pNegP: 0.3, sNegP: 2, negKind: 'exc', pNegUp: 0.2, sNegUp: 3, pJE: 0.3, sJE: 3,
+  // 深层预测网络（pcDeep，三部分结构：浅层结构网络 / 深层预测网络 / 误差网络）：深层的活动 = "接下来"。
+  //   学习全在输入侧：老师 = 浅层 → 深层 同组固定（ED，Y 到来时直接驱动深层 Y）；
+  //   线索 = 浅层 → 深层 只连别组、可塑带突触痕迹（CUE，cueTauN 配对窗口）——X 期间浅层 X 留痕，
+  //   Y 到来时老师驱动深层 Y，痕迹 × 突触后 → 浅层 X → 深层 Y；Y 之后是休息，反向没有配对，方向来自时序。
+  //   输出侧不学：深层 → 下层中继 同组固定（DS，"接下来"的预测，复用中继已学好的物体级抵消）；
+  //   deepBias 时另有 深层 → 本层浅层 的弱连接（DE，交接时的偏向，错误由负误差纠正）。
+  //   细胞参数沿用深层记录的标定（C 900 pF、gL 3 nS、τ 300 ms、适应弱；输入要有 AMPA：只有 NMDA 时静息 −65 mV 镁阻断几乎全闭，推不动）。
+  ND: 200, dP: { C: 900, gL: 3, b: 5, tauW: 300 }, bgD: 1, pED: 0.3, sED: 6, dKind: 'exc', pDD: 0.2, sDD: 0,
+  pCue: 0.2, cueMax: 4, cueRho0: 0.05, cueBudget: 0.25, cueTauN: 200,
+  pDS: 0.3, sDS: 0.5, dsKind: 'exc', deepBias: false, pDE: 0.2, deMax: 2, deRho0: 0.05, deBudget: 0.2, deTauN: 200,
 };
 
 /** cfg：单层参数（与 demo/fig2-network.mjs 的 CFG 相同：NE、NI、K 组 × M 个神经元、pConn、contacts、sMax、rho0、budget、sie、istdpEta、rule、bg、seed）+ 层间参数 */
@@ -54,6 +64,7 @@ export function buildLayered(nLayers, cfg) {
     pops.push({ name: `M${k}`, n: pc.NN, p: pc.nP }, { name: `V${k}`, n: pc.NS, p: pc.sP });
     if (k > 1) pops.push({ name: `J${k}`, n: pc.NS, p: pc.sP });
   }
+  if (pc && c.pcDeep) for (let k = 2; k <= nLayers; k++) pops.push({ name: `D${k}`, n: pc.ND, p: pc.dP });
   const net = new SpikingNetwork({ costs: mammalianCosts(), seed: c.seed, plasticity: c.rule, pops });
   // 组：每个群按自己的规模等比例划分成 K 组（组大小 = 群大小 × M / NE），余下的不成组（编号 K）
   const blockIn = (n) => (a) => Math.min(Math.floor(a / ((n * c.M) / c.NE)), c.K);
@@ -102,6 +113,17 @@ export function buildLayered(nLayers, cfg) {
       }
     }
   }
+  if (pc && c.pcDeep) for (const L of layers) if (L.k > 1) {
+    const lo = layers[L.k - 2];
+    L.D = net.idx(`D${L.k}`);
+    // 老师：浅层 → 深层 同组固定；线索：浅层 → 深层 只连别组、可塑带痕迹（学习全在输入侧）
+    L.ED = net.connect({ pairs: topoN(L.E, L.D, pc.pED), contacts: 10, pRelease: 0.3, tauRec: 100, kind: pc.dKind, scale: pc.sED });
+    L.CUE = net.connect({ pairs: topoN(L.E, L.D, 0, pc.pCue), contacts: 10, pRelease: 0.3, tauRec: 100, plastic: { sMin: 0, sMax: pc.cueMax, rho0: pc.cueRho0, accel: 5, budget: pc.cueBudget, ...(pc.cueTauN ? { tauN: pc.cueTauN } : {}) } });
+    if (pc.sDD) L.DD = net.connect({ pairs: topoN(L.D, L.D, pc.pDD), contacts: 10, pRelease: 0.3, tauRec: 100, kind: 'nmda', scale: pc.sDD });
+    // 深层 → 下层中继：同组固定（输出侧不学）
+    L.DS = net.connect({ pairs: topoN(L.D, lo.S, pc.pDS), contacts: 10, pRelease: 0.3, tauRec: 100, kind: pc.dsKind, scale: pc.sDS });
+    if (pc.deepBias) L.DE = net.connect({ from: `D${L.k}`, to: `E${L.k}`, p: pc.pDE, contacts: 10, pRelease: 0.3, tauRec: 100, plastic: { sMin: 0, sMax: pc.deMax, rho0: pc.deRho0, accel: 5, budget: pc.deBudget, ...(pc.deTauN ? { tauN: pc.deTauN } : {}) } });
+  }
   const layerOf = new Int32Array(net.N).fill(-1);
   layers.forEach((L, k) => L.E.forEach((i) => (layerOf[i] = k)));
   return { net, layers, cfg: c, layerOf };
@@ -111,14 +133,14 @@ export function buildLayered(nLayers, cfg) {
 export function learnOnly(stack, groups) { for (const g of stack.net.groups) g.frozen = true; for (const g of groups) if (g) g.frozen = false; }
 
 const setRho = (g, rho) => { g.rho.set(rho); const { sMin, sMax } = g.plastic; for (let k = 0; k < rho.length; k++) g.scale[k] = sMin + (sMax - sMin) * g.rho[k]; };
-/** 可学习的状态：每层的兴奋→兴奋效能（EE）、抑制强度（IE）、反馈效能（FB）、预测抑制强度（PRED） */
-const RHO_KEYS = ['EE', 'FB'], SCALE_KEYS = ['IE', 'PRED', 'NEGI'];
-export const saveState = (stack) => stack.layers.map((L) => Object.fromEntries([...RHO_KEYS.filter((key) => L[key]).map((key) => [key, [...L[key].rho]]), ...SCALE_KEYS.filter((key) => L[key]).map((key) => [key, [...L[key].scale]])]));
+/** 可学习的状态：每层的兴奋→兴奋效能（EE）、抑制强度（IE）、反馈效能（FB）、预测抑制强度（PRED）、深层线索效能（CUE）等 */
+const RHO_KEYS = ['EE', 'FB', 'DS', 'DE', 'CUE'], SCALE_KEYS = ['IE', 'PRED', 'NEGI'];
+export const saveState = (stack) => stack.layers.map((L) => Object.fromEntries([...RHO_KEYS.filter((key) => L[key]?.rho).map((key) => [key, [...L[key].rho]]), ...SCALE_KEYS.filter((key) => L[key]).map((key) => [key, [...L[key].scale]])]));
 export function loadState(stack, state) {
   state.forEach((s, k) => {
     const L = stack.layers[k];
     if (!L) return;
-    for (const key of RHO_KEYS) if (s[key] && L[key]) setRho(L[key], s[key]);
+    for (const key of RHO_KEYS) if (s[key] && L[key]?.rho) setRho(L[key], s[key]);
     for (const key of SCALE_KEYS) if (s[key] && L[key]) L[key].scale.set(s[key]);
   });
 }
@@ -133,6 +155,7 @@ export function inputRate(stack, drives = new Map(), extra = null) {
     if (stack.cfg.bgI) for (const i of L.I) arr[i] = stack.cfg.bgI;
     if (pc) { for (const i of L.N) arr[i] = pc.bgN; for (const i of L.S) arr[i] = pc.bgS; }
     if (L.M) { for (const i of L.M) arr[i] = pc.bgM; for (const i of L.V) arr[i] = pc.bgV; if (L.J) for (const i of L.J) arr[i] = pc.bgJ; }
+    if (L.D) for (const i of L.D) arr[i] = pc.bgD;
   });
   if (extra) for (const [i, hz] of extra) arr[i] = hz;
   return (i) => arr[i];

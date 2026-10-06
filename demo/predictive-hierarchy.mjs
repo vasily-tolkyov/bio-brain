@@ -20,7 +20,7 @@ export const PC2 = {
   pcOver: JSON.parse(process.env.PCO ?? '{}'),
 };
 const TAG = process.env.PCO ? '-' + process.env.PCO.replace(/[^a-zA-Z0-9.]+/g, '') : '';
-const log = console.log, G = 'ABCD', POPS = ['E', 'N', 'S', 'M', 'V', 'J'];
+const log = console.log, G = 'ABCD', POPS = ['E', 'N', 'S', 'M', 'V', 'J', 'D'];
 const at = (ids, hz) => new Map(ids.map((i) => [i, hz]));
 const rate = (S, ids, t0, t1) => mean(spikesIn(S.net, ids, t0, t1).map((s) => s.length)) / ((t1 - t0) / 1000);
 /** 第 k 层（从 0 起）某个群（E、N、S）里字母 p 的组 */
