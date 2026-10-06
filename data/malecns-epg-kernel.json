@@ -1,5 +1,5 @@
 {
-  "source": "maleCNS v1.0（neuPrint male-cns:v1.0），mc-agent/research/malecns/ring-profile.mjs 的实测结果",
+  "source": "maleCNS v1.0（neuPrint male-cns:v1.0）的实测结果；提取脚本未包含在本仓库中",
   "method": "EPG→EPG 有效作用 = 直接 + 经 PEN + 经 PEG + 经 Δ7（两步通路按'占突触后总输入的比例'相乘），按相位差 45° 分档平均；单位 ×1000",
   "binsDeg": [-135, -90, -45, 0, 45, 90, 135, 180],
   "total": [-0.26, 0.08, 1.59, 10.27, 1.50, 0.08, -0.27, -0.24],

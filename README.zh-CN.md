@@ -656,7 +656,7 @@ C 组被两个物体瓜分了：第一层的 B 经有向通道带起 C（画出�
 | 钙规则参数（DP 组） | τ_Ca 20 ms、C_pre 1、C_post 2、θ_d 1、θ_p 1.3、γ_d 200、γ_p 321.8、τ 150 s、D 13.7 ms | Graupner & Brunel 2012, PNAS |
 | 网络版钙规则（`GB_NMDA`） | 在 DP 组上改 C_pre 0.8、C_post 1.0、NMDA 同时检测 η = 2（递质一释放就结合，τ_N 40 ms） | 本项目为网络稳定所调，配对时间窗见 `verify/L4-emergence.mjs` |
 | 抑制性可塑性 | 目标 5 Hz，τ 20 ms，η 0.05 | Vogels, Sprekeler, Zenke, Clopath & Gerstner 2011, Science |
-| 方向环连接核 | `data/malecns-epg-kernel.json` | maleCNS v1.0（Berg et al. 2026, Cell），`mc-agent/research/malecns/ring-profile.mjs` |
+| 方向环连接核 | `data/malecns-epg-kernel.json` | maleCNS v1.0（Berg et al. 2026, Cell）；提取脚本未包含在本仓库中 |
 | 预测误差学习 | Δw = α·δ·x | Rescorla & Wagner 1972 |
 | 互补学习系统 | 海马快、皮层慢、交错回放 | McClelland, McNaughton & O'Reilly 1995 |
 | 万能近似定理 | 一层非多项式非线性 + 可调线性读出；径向基网络同样成立 | Cybenko 1989；Hornik 1991；Leshno, Lin, Pinkus & Schocken 1993；Park & Sandberg 1991 |
@@ -674,7 +674,7 @@ C 组被两个物体瓜分了：第一层的 B 经有向通道带起 C（画出�
 ## 已知缺口
 
 1. **低频持续活动**：最简单的兴奋/抑制脉冲集合只有约 100 Hz 的持续态；皮层式的 10–50 Hz 持续活动需要 NMDA 饱和或短时程易化等机制。
-2. **原样 maleCNS 接线跑不出环吸引子**：方向环用的是实测核的偶部加左右镜像的 PEN；按神经元级突触数直接模拟时，缺每对细胞类型的单位突触强度与细胞内在参数（见 `mc-agent/research/malecns/REPORT-data.md` 第 3 节）。
+2. **原样 maleCNS 接线跑不出环吸引子**：方向环用的是实测核的偶部加左右镜像的 PEN；按神经元级突触数直接模拟时，缺每对细胞类型的单位突触强度与细胞内在参数（相关的数据分析报告未包含在本仓库中）。
 3. **第 4 层速率版与第 5 层是粗粒化的**：一个单元代表一个神经元的放电率（L5 的海马用 k 个赢者代替篮状细胞），每单元的 ATP 由 L1/L2 的常数换算。第 4 层的脉冲版（L4b）是逐个脉冲、逐个突触算的，但只有 100 个兴奋性神经元，吸引子较浅。
 4. **学习加速**：第 3 层群体实验把钙规则的时间常数缩短了 5 倍（150 s → 30 s）。更大的加速会破坏"慢变量"假设——每个放电周期内 ρ 就会跑到阶段性平衡点。
 5. **还没有的结构**：基底节（动作选择）、蕈状体的多巴胺分区、神经调质的状态（觉醒、饥饿）、胶质细胞，以及把五个模块接成一个完整回路去完成任务（例如 L3 式"记住地点、走回去、拿起来"）。

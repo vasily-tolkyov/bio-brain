@@ -4,6 +4,8 @@
   "description": "逐层生物脑模型：单个神经元 → 突触 → 赫布学习 → 网络吸引子与有向通道 → 脑结构，每层同时记代谢（ATP）与动力学两本能量账",
   "type": "module",
   "private": true,
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "https://github.com/vasily-tolkyov/bio-brain.git" },
   "scripts": {
     "verify": "node verify/all.mjs",
     "test": "node verify/all.mjs"
