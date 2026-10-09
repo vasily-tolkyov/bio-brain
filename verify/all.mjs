@@ -1,4 +1,4 @@
-/** 逐层验证：任何一层有未通过的检查即返回非零。FAST=1 跳过脉冲网络长实验 L4b/d/e/f/g。L4g 无缓存时按验收门槛训练。 */
+/** 逐层验证：任何一层有未通过的检查即返回非零。FAST=1 跳过脉冲网络长实验 L4b/d/e/f/g/h。无缓存时按验收门槛训练。 */
 import { verifyL1 } from './L1-neuron.mjs';
 import { verifyL2 } from './L2-synapse.mjs';
 import { verifyL3 } from './L3-hebbian.mjs';
@@ -9,14 +9,23 @@ import { verifyL4TwoLayer } from './L4-two-layer.mjs';
 import { verifyL4Hierarchy } from './L4-hierarchy.mjs';
 import { verifyL4Predictive } from './L4-predictive.mjs';
 import { verifyL4Chain } from './L4-chain.mjs';
+import { verifyL4RateRule } from './L4-rate-rule.mjs';
 import { verifyL5 } from './L5-brain.mjs';
 
 const t0 = Date.now();
 const results = [];
-const layers = [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L4b', verifyL4Emergence], ['L4c', verifyL4Uat], ['L4d', verifyL4TwoLayer], ['L4e', verifyL4Hierarchy], ['L4f', verifyL4Predictive], ['L4g', verifyL4Chain], ['L5', verifyL5]]
-  .filter(([n]) => !(process.env.FAST && ['L4b', 'L4d', 'L4e', 'L4f', 'L4g'].includes(n)));
+const layers = [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L4b', verifyL4Emergence], ['L4c', verifyL4Uat], ['L4d', verifyL4TwoLayer], ['L4e', verifyL4Hierarchy], ['L4f', verifyL4Predictive], ['L4h', verifyL4RateRule], ['L4g', verifyL4Chain], ['L5', verifyL5]]
+  .filter(([n]) => !(process.env.FAST && ['L4b', 'L4d', 'L4e', 'L4f', 'L4g', 'L4h'].includes(n)));
 for (const [name, fn] of layers) {
   const t = Date.now();
+  if (['L4h', 'L4g'].includes(name) && ['L3', 'L4b'].some(layer => !results.find(r => r.name === layer)?.ok)) {
+    console.log(`✗ ${name}：R1/R2 前置验证未通过，按停止条件不进入新实验`);
+    results.push({ name, ok: false, s: 0 }); continue;
+  }
+  if (name === 'L4g' && !results.find(r => r.name === 'L4h')?.ok) {
+    const { ok } = fn({ trainMissing: false });
+    results.push({ name, ok, s: (Date.now() - t) / 1000 }); continue;
+  }
   const { ok } = fn();
   results.push({ name, ok, s: (Date.now() - t) / 1000 });
 }

@@ -1,14 +1,15 @@
-/** 有向通道演化链。只用已验证的 SpikingNetwork，不改变 src。
+/** 有向通道演化链 v2。GB_RATE、刺激期兴奋学习、组内加密与学习态增益。
  * MODE=attractors/sequence/calib/test/controls/fig；BG/BG_I 仅用于计划允许的背景标定。
- * 学习态：GB_NMDA 与 Vogels 可塑性；演化态：全部冻结、递归乘 G、适应 B。
+ * 学习态：兴奋学习按窗口冻结，Vogels 全程学习；演化态：全部冻结、绝对增益 G、适应 B。
  * 缓存保存连接效能及明确的配置指纹；结果与验收使用计划指定的时间分箱。
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SpikingNetwork } from '../src/L4-network/spiking-network.mjs';
-import { GB_NMDA } from '../src/L3-plasticity/calcium-rule.mjs';
+import { GB_NMDA, GB_RATE } from '../src/L3-plasticity/calcium-rule.mjs';
 import { mammalianCosts } from '../src/L1-neuron/hh.mjs';
 import { makeRng } from '../src/core/rng.mjs';
 import { Canvas, heat, PALETTE } from '../src/core/png.mjs';
@@ -17,9 +18,9 @@ export const ROOT = fileURLToPath(new URL('../', import.meta.url));
 export const LABELS = 'ABCDEFGH';
 export const EDGES = [[0, 1], [1, 2], [2, 3], [2, 6], [3, 4], [4, 5], [6, 7]];
 export const CONFIG = Object.freeze({
-  version: 1, seed: 1, NE: 720, NI: 180, K: 8, M: 80, dt: 0.1,
-  pIn: 0.1, pOut: 0.1, contacts: 10, sMin: 0.1, sMax: 9, rho0: 0.1,
-  accel: 5, budget: 0.2, bg: 28, bgI: 12, stim: 52, seqStim: 58,
+  version: 2, rule: 'GB_RATE', initialGain: 1, seed: 1, NE: 720, NI: 180, K: 8, M: 80, dt: 0.1,
+  pIn: 0.25, pOut: 0.083, contacts: 10, sMin: 0.1, sMax: 9, rho0: 0.1,
+  accel: 5, budget: 0.2, bg: 30, bgI: 12, stim: 52, seqStim: 58,
   b: 20, tauW: 300, pEI: 0.2, sEI: 1.5, pIE: 0.4, sIE: 4,
   pII: 0.4, sII: 4, eta: 0.02, target: 3, ieMax: 40,
 });
@@ -35,7 +36,8 @@ const sd = xs => { const m = mean(xs); return Math.sqrt(mean(xs.map(x => (x - m)
 const median = xs => { const a = xs.slice().sort((x, y) => x - y); return a.length ? (a[Math.floor((a.length - 1) / 2)] + a[Math.floor(a.length / 2)]) / 2 : 0; };
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const weightHash = state => hash({ configHash: state.configHash, rho: state.rho, inhibition: state.inhibition });
-const cacheFile = (name, cfg = CONFIG) => atPath('cache', `chain-${name}${cfg.pIn === 0.1 ? '' : '-pin025'}.json`);
+export const cacheFile = (name, cfg = CONFIG) => atPath('cache', `chain-v2-${name}${cfg.rule === 'GB_RATE' ? '' : '-gbnmda'}.json`);
+export const RULES = { GB_RATE, GB_NMDA, GB_NMDA_ETA0: { ...GB_NMDA, eta: 0 } };
 const groupOf = (i, cfg) => i < cfg.K * cfg.M ? Math.floor(i / cfg.M) : -1;
 const prototype = (g, cfg) => Array.from({ length: cfg.M }, (_, k) => g * cfg.M + k);
 let costs;
@@ -53,9 +55,11 @@ export function resumableRng(initial = 1) {
     state: () => s };
 }
 
-export function buildChain(cfg = CONFIG, state = null, { G = 1, b = 20, noiseSeed = 1001 } = {}) {
+export function buildChain(cfg = CONFIG, state = null, { G = state?.learnGain ?? cfg.initialGain ?? 1, b = 20, noiseSeed = 1001 } = {}) {
   costs ??= mammalianCosts();
-  const net = new SpikingNetwork({ costs, seed: cfg.seed, dt: cfg.dt, plasticity: GB_NMDA,
+  const plasticity = RULES[cfg.rule];
+  if (!plasticity) throw new Error(`未知规则 ${cfg.rule}`);
+  const net = new SpikingNetwork({ costs, seed: cfg.seed, dt: cfg.dt, plasticity,
     pops: [{ name: 'E', n: cfg.NE, p: { b, tauW: cfg.tauW } }, { name: 'I', n: cfg.NI, p: { C: 100, tRef: 1 } }] });
   const pairs = [];
   for (let a = 0; a < cfg.NE; a++) for (let z = 0; z < cfg.NE; z++) {
@@ -72,18 +76,24 @@ export function buildChain(cfg = CONFIG, state = null, { G = 1, b = 20, noiseSee
   if (state) {
     if (state.configHash !== hash(cfg) || state.rho.length !== EE.rho.length || state.inhibition.length !== IE.scale.length) throw new Error('缓存与网络配置不匹配');
     EE.rho.set(state.rho); IE.scale.set(state.inhibition);
-    for (let k = 0; k < EE.rho.length; k++) EE.scale[k] = cfg.sMin + (cfg.sMax - cfg.sMin) * EE.rho[k];
   }
-  for (let k = 0; k < EE.scale.length; k++) EE.scale[k] *= G;
   net.rng = resumableRng(noiseSeed);
   const S = { net, EE, IE, cfg, G, b, E: net.idx('E'), I: net.idx('I') };
+  setGain(S, G);
   return S;
 }
 
-const snapshot = S => ({ config: S.cfg, configHash: hash(S.cfg), rho: Array.from(S.EE.rho), inhibition: Array.from(S.IE.scale) });
+export function setGain(S, G) {
+  if (!(G > 0) || !Number.isFinite(G)) throw new Error('增益必须为有限正数');
+  S.EE.plastic.sMin = S.cfg.sMin * G; S.EE.plastic.sMax = S.cfg.sMax * G;
+  for (let k = 0; k < S.EE.rho.length; k++) S.EE.scale[k] = S.EE.plastic.sMin + (S.EE.plastic.sMax - S.EE.plastic.sMin) * S.EE.rho[k];
+  S.G = G;
+}
+
+const snapshot = S => ({ config: S.cfg, configHash: hash(S.cfg), learnGain: S.G, rho: Array.from(S.EE.rho), inhibition: Array.from(S.IE.scale) });
 export function captureRuntime(S) {
   const net = S.net, vectors = {};
-  for (const name of ['V', 'w', 'ref', 'Rin', 'x', 'y', 'nmda', 'xs', 'ys']) if (net[name]) vectors[name] = Array.from(net[name]);
+  for (const name of ['V', 'w', 'ref', 'Rin', 'x', 'y', 'y2', 'nmda', 'xs', 'ys']) if (net[name]) vectors[name] = Array.from(net[name]);
   return { t: net.t, vectors, ra: net.ra.map(a => Array.from(a)), rb: net.rb.map(a => Array.from(a)),
     ea: net.ea.map(a => Array.from(a)), eb: net.eb.map(a => Array.from(a)),
     groups: net.groups.map(g => ({ R: Array.from(g.R), z: g.z ? Array.from(g.z) : null })),
@@ -91,7 +101,10 @@ export function captureRuntime(S) {
 }
 export function restoreRuntime(S, runtime) {
   const net = S.net; net.t = runtime.t;
-  for (const [name, values] of Object.entries(runtime.vectors)) net[name].set(name === 'ref' ? values.map(x => x === null ? -Infinity : x) : values);
+  for (const [name, values] of Object.entries(runtime.vectors)) {
+    net[name] ??= new Float64Array(net.N);
+    net[name].set(name === 'ref' ? values.map(x => x === null ? -Infinity : x) : values);
+  }
   for (const name of ['ra', 'rb', 'ea', 'eb']) runtime[name].forEach((a, k) => net[name][k].set(a));
   runtime.groups.forEach((g, k) => { net.groups[k].R.set(g.R); if (g.z) net.groups[k].z.set(g.z); });
   net.pending = runtime.pending.slice(); net.pendHead = runtime.pendHead;
@@ -103,7 +116,9 @@ const rate = (S, ids = [], hz = S.cfg.stim) => {
   for (const i of ids) rates[i] = hz;
   return i => rates[i];
 };
-export function run(S, ms, { ids = [], hz = S.cfg.stim, learn = false, lowNoise = false } = {}) {
+export function run(S, ms, { ids = [], hz = S.cfg.stim, learn = false, lowNoise = false, excLearn = ids.length > 0 } = {}) {
+  S.EE.frozen = !learn || !excLearn;
+  if (S.EE.frozen) S.EE.z.fill(0);
   S.net.run(ms, { rate: rate(S, ids, hz), learn, ...(lowNoise ? { nIn: 600, inContacts: 1 } : {}) });
 }
 const clearSpikes = S => { for (const spikes of S.net.spikes) spikes.length = 0; };
@@ -146,8 +161,8 @@ export function weightMatrix(S) {
   return { matrix, counts: count, off, ratios, meanRatio: mean(matrix.map((row, a) => row[a])) / off };
 }
 
-function completionMetrics(state) {
-  const cfg = state.config, S = buildChain(cfg, state, { noiseSeed: 2001 }), rng = makeRng(2002), rows = [];
+export function completionMetrics(state, { G = state.learnGain ?? 1 } = {}) {
+  const cfg = state.config, S = buildChain(cfg, state, { G, noiseSeed: 2001 }), rng = makeRng(2002), rows = [];
   run(S, 500);
   for (let g = 0; g < cfg.K; g++) {
     const samples = [];
@@ -169,7 +184,6 @@ export function attractorChecks(r) {
       actual: { rE: r.baseline.rE, rI: r.baseline.rI, fano: r.baseline.fano } },
     { id: '1.2', name: '全部 8 组的组内/组间效能比至少 2', ok: r.weights.ratios.every(x => x >= 2), actual: r.weights.ratios },
     { id: '1.3', name: '补全平均至少 +0.5 Hz 且至少 7 组为正', ok: r.completion.meanDelta >= 0.5 && r.completion.positiveGroups >= 7, actual: { meanDelta: r.completion.meanDelta, positiveGroups: r.completion.positiveGroups } },
-    { id: '1.4', name: '学习态静息点燃率不超过 5%', ok: r.rest.ignitionRate <= 0.05, actual: r.rest.ignitionRate },
   ];
 }
 
@@ -295,7 +309,10 @@ export function sequenceChecks(r) {
   ];
 }
 const reportChecks = checks => { for (const c of checks) console.log(`${c.ok ? '✓' : '✗'} ${c.id} ${c.name}: ${JSON.stringify(c.actual)}`); };
-export const readResults = () => fs.existsSync(atPath('figures', 'chain-results.json')) ? jsonRead(atPath('figures', 'chain-results.json')) : { schema: 1, design: { labels: LABELS, edges: EDGES, config: CONFIG }, phases: {}, grid: [], controls: {}, checks: [] };
+export const readResults = () => {
+  const result = fs.existsSync(atPath('figures', 'chain-results.json')) ? jsonRead(atPath('figures', 'chain-results.json')) : null;
+  return result?.schema === 2 ? result : { schema: 2, design: { labels: LABELS, edges: EDGES, config: CONFIG }, phases: {}, grid: [], controls: {}, checks: [] };
+};
 const updateResults = patch => { const result = { ...readResults(), ...patch }; jsonWrite(atPath('figures', 'chain-results.json'), result); return result; };
 
 function variant(S, rng) {
@@ -313,12 +330,12 @@ export function baseline(cfg) {
   return r;
 }
 
-export function trainAttractors(cfg = CONFIG, { baselineOnly = false } = {}) {
+export function trainAttractors(cfg = CONFIG, { baselineOnly = false, storeResults = true, allowFailedBaseline = false } = {}) {
   const file = cacheFile('attractors', cfg);
   if (fs.existsSync(file) && !baselineOnly) {
     const state = jsonRead(file);
     if (state.configHash !== hash(cfg)) throw new Error('已有吸引子缓存属于其他配置；请明确选择其配置，不能覆盖');
-    updateResults({ attractors: state.measurements, config: cfg,
+    if (storeResults) updateResults({ attractors: state.measurements, config: cfg,
       phases: { ...readResults().phases, attractors: state.measurements.checks.every(x => x.ok) ? 'passed' : 'failed' } });
     reportChecks(state.measurements.checks); return state;
   }
@@ -326,10 +343,11 @@ export function trainAttractors(cfg = CONFIG, { baselineOnly = false } = {}) {
   const progress = !baselineOnly && fs.existsSync(progressFile) ? jsonRead(progressFile) : null;
   if (progress && progress.state.configHash !== hash(cfg)) throw new Error('已有训练检查点配置不同，不能覆盖');
   const before = progress?.baseline ?? baseline(cfg);
-  updateResults({ config: cfg, baseline: before, baselineCandidates: [...(readResults().baselineCandidates ?? []), { cfg, ...before }] });
+  if (storeResults) updateResults({ config: cfg, baseline: before, baselineCandidates: [...(readResults().baselineCandidates ?? []), { cfg, ...before }] });
   const baselineOK = before.rE >= 2 && before.rE <= 5 && before.rI >= 5 && before.rI <= 20 && before.fano < 2;
   if (baselineOnly) return { baseline: before, ok: baselineOK };
-  if (!baselineOK) throw new Error('训练前标定未达标；仅允许在 BG=20–32、BG_I=8–16 内调整背景，尚未开始训练');
+  if (!baselineOK && !allowFailedBaseline) throw new Error('训练前标定未达标；仅允许在 BG=20–32、BG_I=8–16 内调整背景，尚未开始训练');
+  if (!baselineOK && allowFailedBaseline) console.log('5e 原规则对照的基线不作门槛，记录后继续');
   const S = buildChain(cfg, progress?.state), rng = resumableRng(progress?.variantRng ?? 3);
   const counts = progress?.counts ?? Array(cfg.K).fill(0), t0 = Date.now(), elapsed = progress?.seconds ?? 0;
   if (progress) { restoreRuntime(S, progress.runtime); console.log(`精确恢复吸引子训练 ${progress.completed}/300`); }
@@ -350,15 +368,52 @@ export function trainAttractors(cfg = CONFIG, { baselineOnly = false } = {}) {
   const measurements = { baseline: before, weights, completion, rest, training: state.training };
   measurements.checks = attractorChecks(measurements);
   state.measurements = measurements; jsonWrite(file, state);
-  updateResults({ config: cfg, attractors: measurements, phases: { ...readResults().phases, attractors: measurements.checks.every(x => x.ok) ? 'passed' : 'failed' } });
+  if (storeResults) updateResults({ config: cfg, attractors: measurements, phases: { ...readResults().phases, attractors: measurements.checks.every(x => x.ok) ? 'passed' : 'failed' } });
   reportChecks(measurements.checks);
   return state;
 }
 
-function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = false, matchedPaths = null } = {}) {
-  if (!attractors.measurements.checks.every(x => x.ok)) throw new Error('步骤 1 未通过，禁止继续序列训练');
+export const LEARN_GAIN_GRID = [1, 0.9, 0.8, 0.7, 0.6, 0.5];
+export function learningGainChecks(r) {
+  return [
+    { id: '1b.0', name: '完整六点学习态增益表', ok: r?.grid?.length === 6, actual: r?.grid?.length ?? 0 },
+    { id: '1b.1', name: '最大可用学习增益：静息点燃 ≤ 5%，补全 ≥ +0.5 Hz 且 ≥ 7/8 为正',
+      ok: !!r?.selected && r.selected.ok, actual: r?.selected ? { G: r.selected.G, ignition: r.selected.rest.ignitionRate, completion: r.selected.completion.meanDelta, positive: r.selected.completion.positiveGroups } : '未找到或未运行' },
+  ];
+}
+export function learningGainCondition(attractors, G) {
+  if (!LEARN_GAIN_GRID.includes(G)) throw new Error('学习增益不在计划网格中');
+  if (!attractors.measurements.checks.every(c => c.ok)) throw new Error('S1 未通过，禁止标定学习增益');
+  const file = cacheFile(`learn-g${G}`, attractors.config), stateHash = weightHash(attractors);
+  if (fs.existsSync(file)) { const saved = jsonRead(file); if (saved.stateHash !== stateHash) throw new Error('学习增益缓存来源不符'); return saved; }
+  const S = buildChain(attractors.config, attractors, { G, noiseSeed: 3001 }), t0 = Date.now();
+  run(S, 500); const rest = restMetrics(S); delete rest.bins10;
+  const completion = completionMetrics(attractors, { G });
+  const r = { G, stateHash, rest, completion, seconds: (Date.now() - t0) / 1000 };
+  r.ok = rest.ignitionRate <= 0.05 && completion.meanDelta >= 0.5 && completion.positiveGroups >= 7;
+  jsonWrite(file, r); console.log(`学习增益 G=${G}: ${JSON.stringify({ ignition: rest.ignitionRate, completion: completion.meanDelta, positive: completion.positiveGroups, ok: r.ok })}`);
+  return r;
+}
+export function collectLearningGain(attractors) {
+  const grid = [];
+  for (const G of LEARN_GAIN_GRID) {
+    const file = cacheFile(`learn-g${G}`, attractors.config);
+    if (fs.existsSync(file)) { const r = jsonRead(file); if (r.stateHash !== weightHash(attractors)) throw new Error('学习增益表来源不符'); grid.push(r); }
+  }
+  const selected = grid.length === 6 ? grid.find(r => r.ok) ?? null : null;
+  const r = { grid, selected }; r.checks = learningGainChecks(r);
+  updateResults({ learningGain: r, phases: { ...readResults().phases, learningGain: grid.length < 6 ? 'incomplete' : selected ? 'passed' : 'failed' } });
+  return r;
+}
+export function ensureLearningGain(attractors) {
+  for (const G of LEARN_GAIN_GRID) learningGainCondition(attractors, G);
+  return collectLearningGain(attractors);
+}
+
+function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = false, matchedPaths = null, learnGain = 1, allowFailedAttractors = false } = {}) {
+  if (!allowFailedAttractors && !attractors.measurements.checks.every(x => x.ok)) throw new Error('步骤 1 未通过，禁止继续序列训练');
   const cfg = attractors.config, name = `${shuffled ? 'shuffled' : 'sequence'}-${episodes}-${itemMs}`;
-  const file = cacheFile(name, cfg), sourceHash = weightHash(attractors);
+  const file = cacheFile(name, cfg), sourceHash = hash({ weights: weightHash(attractors), learnGain });
   if (fs.existsSync(file)) {
     const cached = jsonRead(file);
     if (cached.sourceHash !== sourceHash || cached.configHash !== hash(cfg)) throw new Error('序列缓存起点不匹配');
@@ -372,7 +427,7 @@ function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = fal
     if (fs.existsSync(firstProgress)) progress = jsonRead(firstProgress);
   }
   if (progress && (progress.sourceHash !== sourceHash || progress.state.configHash !== hash(cfg))) throw new Error('序列检查点起点不匹配');
-  const S = buildChain(cfg, progress?.state ?? attractors, { noiseSeed: 4001 });
+  const S = buildChain(cfg, progress?.state ?? attractors, { G: learnGain, noiseSeed: 4001 });
   const worldRng = resumableRng(progress?.worldRng ?? 4002), variantRng = resumableRng(progress?.variantRng ?? 4003), reverseRng = resumableRng(progress?.reverseRng ?? 4004);
   const experienced = progress?.experienced ?? Array.from({ length: 8 }, () => Array(8).fill(0));
   const paths = progress?.paths ?? [], variantCounts = progress?.variantCounts ?? Array(8).fill(0);
@@ -397,7 +452,7 @@ function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = fal
   }
   const state = snapshot(S);
   state.sourceHash = sourceHash;
-  state.training = { episodes, itemMs, shuffled, paths, experienced, variantCounts, reversedEpisodes: paths.filter(p => p.reversed).length,
+  state.training = { episodes, itemMs, shuffled, learnGain, paths, experienced, variantCounts, reversedEpisodes: paths.filter(p => p.reversed).length,
     seconds: elapsed + (Date.now() - t0) / 1000 };
   const restS = buildChain(cfg, state, { noiseSeed: 5001 }); run(restS, 500);
   const rest = restMetrics(restS); delete rest.bins10;
@@ -409,9 +464,12 @@ function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = fal
 
 export function ensureSequence(cfg = environmentConfig()) {
   const attractors = trainAttractors(cfg), mainFile = cacheFile('main', cfg);
+  const gain = ensureLearningGain(attractors);
+  if (!gain.selected) throw new Error('S1b 无可用学习增益，禁止序列学习');
+  const learnGain = gain.selected.G;
   if (fs.existsSync(mainFile)) {
     const main = jsonRead(mainFile);
-    if (main.configHash !== hash(cfg) || main.sourceHash !== weightHash(attractors)) throw new Error('主缓存与配置或吸引子起点不符');
+    if (main.configHash !== hash(cfg) || main.sourceHash !== hash({ weights: weightHash(attractors), learnGain })) throw new Error('主缓存与配置、吸引子起点或学习增益不符');
     const attempts = [[160, 40], [320, 40], [320, 30]].slice(0, main.remedies + 1).map(([episodes, itemMs]) => {
       const state = jsonRead(cacheFile(`sequence-${episodes}-${itemMs}`, cfg));
       return { episodes, itemMs, measurements: state.measurements };
@@ -422,7 +480,7 @@ export function ensureSequence(cfg = environmentConfig()) {
   }
   const attempts = [];
   for (const [episodes, itemMs] of [[160, 40], [320, 40], [320, 30]]) {
-    const state = trainSequence(attractors, { episodes, itemMs });
+    const state = trainSequence(attractors, { episodes, itemMs, learnGain });
     attempts.push({ episodes, itemMs, measurements: state.measurements });
     const ok = state.measurements.checks.every(x => x.ok);
     updateResults({ sequenceAttempts: attempts, sequence: state.measurements,
@@ -467,7 +525,7 @@ export function calibrateCondition(main, G, b) {
   r.checks = calibrationChecks(r); r.ok = r.checks.every(x => x.ok); jsonWrite(file, r); reportChecks(r.checks);
   return r;
 }
-export const G_GRID = [1, 1.2, 1.4, 1.6, 1.8, 2];
+export const G_GRID = [0.6, 0.7, 0.8, 0.9, 1, 1.2];
 export const B_GRID = [20, 40, 60, 80];
 export function collectGrid(main) {
   const grid = [];
@@ -543,6 +601,9 @@ export function controlChecks(controls, mainSummary) {
         || (low.branchG === 0 && low.branchD > 0)))
         || (mainSummary?.transitionCount > 0 && low.transitionCount <= 0.5 * mainSummary.transitionCount)),
       actual: low ? { lowBranchRatio: low.branchRatio, mainBranchRatio: mainSummary?.branchRatio, lowTransitions: low.transitionCount, mainTransitions: mainSummary?.transitionCount } : '未运行' },
+    { id: '5.5', name: '原规则对照 5e 的两阶段与比较指标已记录（数值不作门槛）',
+      ok: !!controls.originalRule?.attractors && !!controls.originalRule?.sequence && !!controls.originalRule?.comparison,
+      actual: controls.originalRule?.comparison ?? '未运行' },
   ];
 }
 
@@ -554,9 +615,27 @@ export function runControl(main, workingPoint, kind) {
   else if (kind === 'lowNoise') result = runTrials(main, { G, b, lowNoise: true, name: 'low-noise' });
   else if (kind === 'shuffled') {
     const attractors = jsonRead(cacheFile('attractors', main.config));
-    const shuffled = trainSequence(attractors, { episodes: main.training.episodes, itemMs: main.training.itemMs, shuffled: true, matchedPaths: main.training.paths });
+    const shuffled = trainSequence(attractors, { episodes: main.training.episodes, itemMs: main.training.itemMs, shuffled: true, matchedPaths: main.training.paths, learnGain: main.learnGain });
     jsonWrite(cacheFile('shuffled', main.config), shuffled);
     result = runTrials(shuffled, { G, b, name: 'shuffled' }); result.direction = shuffled.measurements.direction;
+  } else if (kind === 'originalRule') {
+    // 按 5e 的文字，两阶段训练都用主实验 S1b 选出的增益，不为此对照重新选参数。
+    const cfg = { ...main.config, rule: 'GB_NMDA', initialGain: main.learnGain };
+    const attractors = trainAttractors(cfg, { storeResults: false, allowFailedBaseline: true });
+    const sequence = trainSequence(attractors, { episodes: main.training.episodes, itemMs: main.training.itemMs,
+      matchedPaths: main.training.paths, learnGain: main.learnGain, allowFailedAttractors: true });
+    jsonWrite(cacheFile('main', cfg), sequence);
+    const rateAttractors = jsonRead(cacheFile('attractors', main.config));
+    const compare = (state, base) => {
+      const pairs = state.measurements.direction.allPairs.filter(p => p.count === 0);
+      return { attractorRatio: base.measurements.weights.meanRatio, attractorGroupRatios: base.measurements.weights.ratios,
+        sequenceRatio: state.measurements.direction.meanRatio, spearman: state.measurements.direction.spearman,
+        unexperiencedPairs: pairs.length,
+        unexperiencedDeltaFromAttractors: mean(pairs.map(p => p.rho - base.measurements.weights.matrix[p.from][p.to])),
+        unexperiencedDeltaFromInitial: mean(pairs.map(p => p.rho - state.config.rho0)) };
+    };
+    result = { gain: main.learnGain, initialGain: cfg.initialGain, rule: 'GB_NMDA', gate: false, attractors: attractors.measurements,
+      sequence: sequence.measurements, comparison: { GB_RATE: compare(main, rateAttractors), GB_NMDA: compare(sequence, attractors) } };
   } else throw new Error(`未知对照 ${kind}`);
   const file = cacheFile(`control-${kind}`, main.config);
   jsonWrite(file, { mainHash: weightHash(main), result });
@@ -565,20 +644,24 @@ export function runControl(main, workingPoint, kind) {
 
 export function collectControls(main) {
   const controls = {};
-  for (const kind of ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise']) {
+  for (const kind of ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise', 'originalRule']) {
     const file = cacheFile(`control-${kind}`, main.config);
     if (fs.existsSync(file)) { const saved = jsonRead(file); if (saved.mainHash !== weightHash(main)) throw new Error('对照来源不符'); controls[kind] = saved.result; }
   }
   const checks = controlChecks(controls, readResults().mainTest?.summary);
   updateResults({ controls, controlChecks: checks, phases: { ...readResults().phases,
-    controls: Object.keys(controls).length < 4 ? 'incomplete' : checks.every(x => x.ok) ? 'passed' : 'failed' } });
+    controls: Object.keys(controls).length < 5 ? 'incomplete' : checks.every(x => x.ok) ? 'passed' : 'failed' } });
   return { controls, checks };
 }
 
 export function acceptanceChecks(result = readResults()) {
   const missing = (ids, phase) => ids.map(id => ({ id, name: `${phase}未执行`, ok: false, actual: '未运行' }));
   return [
-    ...(result.attractors ? attractorChecks(result.attractors) : missing(['1.1', '1.2', '1.3', '1.4'], '吸引子阶段')),
+    ...(result.rulePrechecks?.R1 ? [{ id: 'R1', name: 'L3 配对与原规则验证', ok: result.rulePrechecks.R1.ok, actual: result.rulePrechecks.R1 }] : missing(['R1'], 'L3 规则检查')),
+    ...(result.rulePrechecks?.R2 ? [{ id: 'R2', name: 'L4 逐拍对拍与 FAST 回归', ok: result.rulePrechecks.R2.ok && result.rulePrechecks.fast?.ok, actual: result.rulePrechecks.R2 }] : missing(['R2'], 'L4 规则检查')),
+    ...(result.ruleAcceptance?.checks ?? missing(['R3.0', 'R3.1', 'R3.2', 'R3.3'], '网络规则验收')),
+    ...(result.attractors ? attractorChecks(result.attractors) : missing(['1.1', '1.2', '1.3'], '吸引子阶段')),
+    ...learningGainChecks(result.learningGain),
     ...(result.sequence ? sequenceChecks(result.sequence) : missing(['2.1', '2.2', '2.3', '2.4', '2.5'], '序列阶段')),
     { id: '2.6', name: '序列补救不超过两次并通过', ok: !!result.sequence && result.sequenceAttempts?.length <= 3 && sequenceChecks(result.sequence).every(x => x.ok), actual: result.sequenceAttempts?.length ?? '未运行' },
     ...(result.workingPoint ? calibrationChecks(result.workingPoint) : missing(['3.1', '3.2', '3.3', '3.4'], '演化标定')),
@@ -593,14 +676,13 @@ export function environmentConfig() {
   const saved = readResults().config ?? CONFIG;
   const cfg = { ...saved, bg: Number(process.env.BG ?? saved.bg), bgI: Number(process.env.BG_I ?? saved.bgI) };
   if (!Number.isFinite(cfg.bg) || !Number.isFinite(cfg.bgI) || cfg.bg < 20 || cfg.bg > 32 || cfg.bgI < 8 || cfg.bgI > 16) throw new Error('背景超出计划允许范围');
-  if (process.env.PIN_FALLBACK === '1') { cfg.pIn = 0.25; cfg.pOut = 0.083; }
   return cfg;
 }
 
 export function drawFigure(result = readResults()) {
   const c = new Canvas(1440, 1060, [248, 250, 252]), ink = [25, 40, 55], muted = [90, 104, 118];
   const colors = [...PALETTE, [23, 170, 165]], actual = result.sequence?.direction ?? result.attractors?.weights;
-  c.text(30, 22, 'DIRECTED ATTRACTOR CHAIN', ink, 3);
+  c.text(30, 22, 'DIRECTED ATTRACTOR CHAIN V2 - GB_RATE', ink, 3);
   c.text(30, 58, `P-IN ${result.config?.pIn ?? 0.1}  BG ${result.config?.bg ?? 28}  ${result.stopReason ? 'STOPPED' : 'MEASURED'}`, muted, 2);
   const panel = (x, y, title) => { c.rect(x, y, 675, 445, [255, 255, 255]); c.text(x + 18, y + 16, title, ink, 2); };
   panel(25, 100, 'A. LEARNED MEAN RHO'); panel(740, 100, 'B. DECODED STATES - 20 TRIALS');
@@ -668,28 +750,29 @@ export function finalizeResults(stopReason = null) {
 
 /** 无缓存时严格按阶段门槛重做；失败时只保存结果，不自行修改设计。 */
 export function runExperiment(cfg = environmentConfig()) {
+  const ruleFile = atPath('figures', 'rate-rule-results.json');
+  if (!fs.existsSync(ruleFile)) execFileSync(process.execPath, [atPath('demo', 'rate-rule.mjs')], { cwd: ROOT, stdio: 'inherit', env: { ...process.env, MODE: 'all' } });
+  const ruleAcceptance = jsonRead(ruleFile);
+  updateResults({ ruleAcceptance, phases: { ...readResults().phases, rateRule: ruleAcceptance.ok ? 'passed' : 'failed' } });
+  if (!ruleAcceptance.ok) return finalizeResults('R3 网络层规则验收未通过，禁止进入演化链');
   if (!fs.existsSync(cacheFile('attractors', cfg)) && !fs.existsSync(cacheFile('attractor-progress', cfg))) {
     const before = trainAttractors(cfg, { baselineOnly: true });
     // 初始 28 Hz 已实测偏低，30 Hz 是计划范围内的首个调整。
     if (!before.ok && before.baseline.rE < 2 && cfg.bg === 28) cfg = { ...cfg, bg: 30 };
   }
   const attractors = trainAttractors(cfg);
-  if (!attractors.measurements.checks.every(c => c.ok)) return finalizeResults('步骤 1 未达标；按停止条件结束实验');
+  if (!attractors.measurements.checks.every(c => c.ok)) return finalizeResults('S1 吸引子效能或补全未达标；按停止条件结束实验');
+  const gain = ensureLearningGain(attractors);
+  if (!gain.selected) return finalizeResults('S1b 六个条件中没有兼顾静息与补全的学习增益');
   const main = ensureSequence(cfg);
-  if (!main.measurements.checks.every(c => c.ok)) return finalizeResults('步骤 2 两次补救用尽后仍未达标');
+  if (!main.measurements.checks.every(c => c.ok)) return finalizeResults('S2 两次补救用尽后仍未达标');
   for (const G of G_GRID) for (const b of B_GRID) calibrateCondition(main, G, b);
   const { workingPoint } = collectGrid(main);
   if (!workingPoint) {
-    if (cfg.pIn === 0.1) {
-      const primaryAttempt = readResults();
-      updateResults({ primaryAttempt, config: { ...cfg, pIn: 0.25, pOut: 0.083 }, attractors: null, sequence: null,
-        sequenceAttempts: [], grid: [], workingPoint: null, mainTest: null, controls: {}, phases: {}, checks: [], stopReason: null });
-      return runExperiment({ ...cfg, pIn: 0.25, pOut: 0.083 });
-    }
-    return finalizeResults('步骤 3 使用连接概率备选重训后仍无工作点');
+    return finalizeResults('S3 完整网格没有工作点；组内加密备选已在 v2 配置中使用');
   }
   mainTest(main);
-  for (const kind of ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise']) runControl(main, workingPoint, kind);
+  for (const kind of ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise', 'originalRule']) runControl(main, workingPoint, kind);
   collectControls(main); return finalizeResults();
 }
 
@@ -698,6 +781,15 @@ function main() {
   if (mode === 'attractors') {
     const r = trainAttractors(cfg, { baselineOnly: process.env.BASELINE_ONLY === '1' });
     process.exitCode = r.measurements ? (r.measurements.checks.every(x => x.ok) ? 0 : 2) : (r.ok ? 0 : 2);
+  } else if (mode === 'learn-gain') {
+    const file = cacheFile('attractors', cfg);
+    if (!fs.existsSync(file)) throw new Error('先完成 S1 的吸引子训练');
+    const state = jsonRead(file);
+    if (process.env.G && process.env.COLLECT_ONLY !== '1') learningGainCondition(state, Number(process.env.G));
+    else {
+      if (process.env.COLLECT_ONLY !== '1') for (const G of LEARN_GAIN_GRID) learningGainCondition(state, G);
+      const r = collectLearningGain(state); reportChecks(r.checks); process.exitCode = r.selected ? 0 : 2;
+    }
   } else if (mode === 'sequence') {
     const state = ensureSequence(cfg); process.exitCode = state.measurements.checks.every(x => x.ok) ? 0 : 2;
   } else if (mode === 'calib' || mode === 'test' || mode === 'controls') {
@@ -716,7 +808,7 @@ function main() {
     } else {
       const workingPoint = readResults().workingPoint;
       if (!workingPoint) throw new Error('尚未聚合完整标定网格');
-      if (process.env.COLLECT_ONLY !== '1') for (const kind of process.env.CONTROL ? [process.env.CONTROL] : ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise']) runControl(state, workingPoint, kind);
+      if (process.env.COLLECT_ONLY !== '1') for (const kind of process.env.CONTROL ? [process.env.CONTROL] : ['noSequence', 'shuffled', 'noAdaptation', 'lowNoise', 'originalRule']) runControl(state, workingPoint, kind);
       if (!process.env.CONTROL || process.env.COLLECT_ONLY === '1') {
         const r = collectControls(state); process.exitCode = r.checks.every(c => c.ok) ? 0 : 2;
       }

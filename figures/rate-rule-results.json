@@ -1,0 +1,1068 @@
+{
+  "schema": 1,
+  "config": {
+    "version": 2,
+    "rule": "GB_RATE",
+    "initialGain": 1,
+    "seed": 1,
+    "NE": 720,
+    "NI": 180,
+    "K": 8,
+    "M": 80,
+    "dt": 0.1,
+    "pIn": 0.1,
+    "pOut": 0.1,
+    "contacts": 10,
+    "sMin": 0.1,
+    "sMax": 9,
+    "rho0": 0.1,
+    "accel": 5,
+    "budget": 0.2,
+    "bg": 30,
+    "bgI": 12,
+    "stim": 52,
+    "seqStim": 58,
+    "b": 20,
+    "tauW": 300,
+    "pEI": 0.2,
+    "sEI": 1.5,
+    "pIE": 0.4,
+    "sIE": 4,
+    "pII": 0.4,
+    "sII": 4,
+    "eta": 0.02,
+    "target": 3,
+    "ieMax": 40
+  },
+  "cases": {
+    "GB_RATE": {
+      "classes": {
+        "mode": "classes",
+        "rule": "GB_RATE",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_RATE",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.6,
+          "Cpost": 0.6,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 1.2,
+          "tauN": 40,
+          "post2Tau": 100
+        },
+        "fingerprint": "9a262f5e4a759fcdc21862003a98a6acd4878ef8b5df797aeb41e784ce23c94e",
+        "budgetOn": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.21228030302192935,
+              "n": 630,
+              "fracUp": 0.765079365079365
+            },
+            "AtoOut": {
+              "meanDelta": 0.010060178173166436,
+              "n": 5117,
+              "fracUp": 0.09771350400625367
+            },
+            "OutToA": {
+              "meanDelta": 0.027070671704267565,
+              "n": 5132,
+              "fracUp": 0.22505845674201091
+            },
+            "OutToOut": {
+              "meanDelta": -0.00389237333929703,
+              "n": 40779,
+              "fracUp": 0.005517545795630104
+            }
+          },
+          "rateA": 13.1484375,
+          "rateOutside": 1.4907852564102564
+        },
+        "budgetOff": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.24613920024600724,
+              "n": 630,
+              "fracUp": 0.8142857142857143
+            },
+            "AtoOut": {
+              "meanDelta": 0.013316435980144172,
+              "n": 5117,
+              "fracUp": 0.1065077193668165
+            },
+            "OutToA": {
+              "meanDelta": 0.05764292080815721,
+              "n": 5132,
+              "fracUp": 0.29812938425565083
+            },
+            "OutToOut": {
+              "meanDelta": -0.0034579974302475767,
+              "n": 40779,
+              "fracUp": 0.00868093871845803
+            }
+          },
+          "rateA": 13.921875,
+          "rateOutside": 1.5268429487179485
+        },
+        "seconds": 252.179
+      },
+      "direction": {
+        "mode": "direction",
+        "rule": "GB_RATE",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_RATE",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.6,
+          "Cpost": 0.6,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 1.2,
+          "tauN": 40,
+          "post2Tau": 100
+        },
+        "fingerprint": "9a262f5e4a759fcdc21862003a98a6acd4878ef8b5df797aeb41e784ce23c94e",
+        "classes": {
+          "AtoA": {
+            "meanDelta": 0.13866398044539752,
+            "n": 630,
+            "fracUp": 0.553968253968254
+          },
+          "AtoB": {
+            "meanDelta": 0.14379133674603484,
+            "n": 644,
+            "fracUp": 0.5
+          },
+          "ABtoOut": {
+            "meanDelta": -0.008926504749795906,
+            "n": 8937,
+            "fracUp": 0.04789079109320801
+          },
+          "BtoA": {
+            "meanDelta": 0.08884632466158254,
+            "n": 662,
+            "fracUp": 0.3459214501510574
+          },
+          "BtoB": {
+            "meanDelta": 0.22575098989512882,
+            "n": 635,
+            "fracUp": 0.6866141732283465
+          },
+          "OutToAB": {
+            "meanDelta": -0.007356550931929934,
+            "n": 8952,
+            "fracUp": 0.0975201072386059
+          },
+          "OutToOut": {
+            "meanDelta": -0.020389716342325274,
+            "n": 31198,
+            "fracUp": 0.0050323738701198795
+          }
+        },
+        "direction": {
+          "AtoA": 0.13866398044539752,
+          "AtoB": 0.14379133674603484,
+          "ABtoOut": -0.008926504749795906,
+          "BtoA": 0.08884632466158254,
+          "BtoB": 0.22575098989512882,
+          "OutToAB": -0.007356550931929934,
+          "OutToOut": -0.020389716342325274
+        },
+        "seconds": 334.295
+      },
+      "rest": {
+        "mode": "rest",
+        "rule": "GB_RATE",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_RATE",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.6,
+          "Cpost": 0.6,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 1.2,
+          "tauN": 40,
+          "post2Tau": 100
+        },
+        "fingerprint": "9a262f5e4a759fcdc21862003a98a6acd4878ef8b5df797aeb41e784ce23c94e",
+        "trace": [
+          {
+            "seconds": 0,
+            "within": 0.1000000000000092,
+            "between": 0.09999999999993965,
+            "ungrouped": 0.10000000000001047
+          },
+          {
+            "seconds": 5,
+            "rE": 2.0413888888888887,
+            "rI": 5.384444444444444,
+            "within": 0.0942250743098751,
+            "between": 0.09426465500661932,
+            "ungrouped": 0.09416180967810017
+          },
+          {
+            "seconds": 10,
+            "rE": 2.0083333333333333,
+            "rI": 5.322222222222222,
+            "within": 0.0885616111165746,
+            "between": 0.08863355472235972,
+            "ungrouped": 0.0885250977698677
+          },
+          {
+            "seconds": 15,
+            "rE": 2.0027777777777778,
+            "rI": 5.31,
+            "within": 0.08330885980269424,
+            "between": 0.08327391043924028,
+            "ungrouped": 0.08313775532805778
+          },
+          {
+            "seconds": 20,
+            "rE": 1.9530555555555555,
+            "rI": 5.227777777777778,
+            "within": 0.0781918834099713,
+            "between": 0.07819023344529757,
+            "ungrouped": 0.07799977537317747
+          },
+          {
+            "seconds": 25,
+            "rE": 1.9502777777777778,
+            "rI": 5.216666666666667,
+            "within": 0.07329697400033386,
+            "between": 0.07334040013768174,
+            "ungrouped": 0.07309622541801736
+          },
+          {
+            "seconds": 30,
+            "rE": 1.9466666666666663,
+            "rI": 5.178888888888889,
+            "within": 0.0686595970552406,
+            "between": 0.0687491199353778,
+            "ungrouped": 0.0684754873224025
+          }
+        ],
+        "seconds": 594.617
+      }
+    },
+    "GB_NMDA": {
+      "classes": {
+        "mode": "classes",
+        "rule": "GB_NMDA",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 2,
+          "tauN": 40
+        },
+        "fingerprint": "a16717e735af4031b7aa5e398b1c50d23aee288dcf73d095909e568568881f6c",
+        "budgetOn": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.2283708890574699,
+              "n": 630,
+              "fracUp": 0.946031746031746
+            },
+            "AtoOut": {
+              "meanDelta": 0.2265336567782945,
+              "n": 5117,
+              "fracUp": 0.9411764705882353
+            },
+            "OutToA": {
+              "meanDelta": 0.0848919460078034,
+              "n": 5132,
+              "fracUp": 0.6040530007794233
+            },
+            "OutToOut": {
+              "meanDelta": 0.08139329758928283,
+              "n": 40779,
+              "fracUp": 0.5710537286348366
+            }
+          },
+          "rateA": 15.3203125,
+          "rateOutside": 4.872996794871795
+        },
+        "budgetOff": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.39867545985717706,
+              "n": 630,
+              "fracUp": 1
+            },
+            "AtoOut": {
+              "meanDelta": 0.3111090879659751,
+              "n": 5117,
+              "fracUp": 0.9415673246042603
+            },
+            "OutToA": {
+              "meanDelta": 0.33517075493685033,
+              "n": 5132,
+              "fracUp": 0.9643413873733437
+            },
+            "OutToOut": {
+              "meanDelta": 0.15408441968172185,
+              "n": 40779,
+              "fracUp": 0.5847372422079992
+            }
+          },
+          "rateA": 10.51171875,
+          "rateOutside": 2.6037660256410264
+        },
+        "seconds": 276.535
+      },
+      "direction": {
+        "mode": "direction",
+        "rule": "GB_NMDA",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 2,
+          "tauN": 40
+        },
+        "fingerprint": "a16717e735af4031b7aa5e398b1c50d23aee288dcf73d095909e568568881f6c",
+        "classes": {
+          "AtoA": {
+            "meanDelta": 0.18305632526411358,
+            "n": 630,
+            "fracUp": 0.7333333333333333
+          },
+          "AtoB": {
+            "meanDelta": 0.09017666828167598,
+            "n": 644,
+            "fracUp": 0.4658385093167702
+          },
+          "ABtoOut": {
+            "meanDelta": 0.10528931736465133,
+            "n": 8937,
+            "fracUp": 0.5293722725746894
+          },
+          "BtoA": {
+            "meanDelta": 0.06419687390665656,
+            "n": 662,
+            "fracUp": 0.42900302114803623
+          },
+          "BtoB": {
+            "meanDelta": 0.14601452944755794,
+            "n": 635,
+            "fracUp": 0.5748031496062992
+          },
+          "OutToAB": {
+            "meanDelta": 0.09367731767958191,
+            "n": 8952,
+            "fracUp": 0.5225647899910635
+          },
+          "OutToOut": {
+            "meanDelta": 0.09806094793903282,
+            "n": 31198,
+            "fracUp": 0.5216360023078402
+          }
+        },
+        "direction": {
+          "AtoA": 0.18305632526411358,
+          "AtoB": 0.09017666828167598,
+          "ABtoOut": 0.10528931736465133,
+          "BtoA": 0.06419687390665656,
+          "BtoB": 0.14601452944755794,
+          "OutToAB": 0.09367731767958191,
+          "OutToOut": 0.09806094793903282
+        },
+        "seconds": 396.342
+      },
+      "rest": {
+        "mode": "rest",
+        "rule": "GB_NMDA",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 2,
+          "tauN": 40
+        },
+        "fingerprint": "a16717e735af4031b7aa5e398b1c50d23aee288dcf73d095909e568568881f6c",
+        "trace": [
+          {
+            "seconds": 0,
+            "within": 0.1000000000000092,
+            "between": 0.09999999999993965,
+            "ungrouped": 0.10000000000001047
+          },
+          {
+            "seconds": 5,
+            "rE": 4.201666666666666,
+            "rI": 10.402222222222221,
+            "within": 0.2008184258708931,
+            "between": 0.19870384982080877,
+            "ungrouped": 0.20349148237760623
+          },
+          {
+            "seconds": 10,
+            "rE": 3.787222222222222,
+            "rI": 9.903333333333332,
+            "within": 0.19958528980665,
+            "between": 0.19977123013368034,
+            "ungrouped": 0.20044604434973548
+          },
+          {
+            "seconds": 15,
+            "rE": 3.6433333333333326,
+            "rI": 9.472222222222223,
+            "within": 0.20221334084673417,
+            "between": 0.20045697857793704,
+            "ungrouped": 0.19711379225581122
+          },
+          {
+            "seconds": 20,
+            "rE": 3.5402777777777783,
+            "rI": 9.114444444444445,
+            "within": 0.20159114441139445,
+            "between": 0.19986189615401406,
+            "ungrouped": 0.19765666071073823
+          },
+          {
+            "seconds": 25,
+            "rE": 3.5194444444444444,
+            "rI": 9.063333333333334,
+            "within": 0.1996543452953323,
+            "between": 0.19990753451705473,
+            "ungrouped": 0.19856585888850437
+          },
+          {
+            "seconds": 30,
+            "rE": 3.443333333333333,
+            "rI": 8.95,
+            "within": 0.19835298048460662,
+            "between": 0.20040469182530618,
+            "ungrouped": 0.19736499693440726
+          }
+        ],
+        "seconds": 445.768
+      }
+    },
+    "GB_NMDA_ETA0": {
+      "classes": {
+        "mode": "classes",
+        "rule": "GB_NMDA_ETA0",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA_ETA0",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 0,
+          "tauN": 40
+        },
+        "fingerprint": "6197bc993f453ed885bdd72f24927551ef07d84b92fb0637f1da0b1dbf10233b",
+        "budgetOn": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.21867241189862155,
+              "n": 630,
+              "fracUp": 0.9841269841269841
+            },
+            "AtoOut": {
+              "meanDelta": 0.06325757276753366,
+              "n": 5117,
+              "fracUp": 0.4588626148133672
+            },
+            "OutToA": {
+              "meanDelta": 0.05811091074079266,
+              "n": 5132,
+              "fracUp": 0.45908028059236167
+            },
+            "OutToOut": {
+              "meanDelta": 0.007319988708083526,
+              "n": 40779,
+              "fracUp": 0.07408224821599353
+            }
+          },
+          "rateA": 13.5390625,
+          "rateOutside": 1.8036858974358978
+        },
+        "budgetOff": {
+          "classes": {
+            "AtoA": {
+              "meanDelta": 0.26894998500708334,
+              "n": 630,
+              "fracUp": 0.9841269841269841
+            },
+            "AtoOut": {
+              "meanDelta": 0.08334741434108318,
+              "n": 5117,
+              "fracUp": 0.5020519835841313
+            },
+            "OutToA": {
+              "meanDelta": 0.11727082786972465,
+              "n": 5132,
+              "fracUp": 0.6453624318004677
+            },
+            "OutToOut": {
+              "meanDelta": 0.011259999204349872,
+              "n": 40779,
+              "fracUp": 0.09725594055763996
+            }
+          },
+          "rateA": 14.74609375,
+          "rateOutside": 1.8910256410256412
+        },
+        "seconds": 266.043
+      },
+      "direction": {
+        "mode": "direction",
+        "rule": "GB_NMDA_ETA0",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA_ETA0",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 0,
+          "tauN": 40
+        },
+        "fingerprint": "6197bc993f453ed885bdd72f24927551ef07d84b92fb0637f1da0b1dbf10233b",
+        "classes": {
+          "AtoA": {
+            "meanDelta": 0.1855967202415276,
+            "n": 630,
+            "fracUp": 0.9317460317460318
+          },
+          "AtoB": {
+            "meanDelta": 0.1708297746844732,
+            "n": 644,
+            "fracUp": 0.8881987577639752
+          },
+          "ABtoOut": {
+            "meanDelta": 0.09832594059991469,
+            "n": 8937,
+            "fracUp": 0.6209018686360076
+          },
+          "BtoA": {
+            "meanDelta": 0.153414428527478,
+            "n": 662,
+            "fracUp": 0.8323262839879154
+          },
+          "BtoB": {
+            "meanDelta": 0.21994580917043297,
+            "n": 635,
+            "fracUp": 0.9433070866141732
+          },
+          "OutToAB": {
+            "meanDelta": 0.06331238594059345,
+            "n": 8952,
+            "fracUp": 0.44436997319034854
+          },
+          "OutToOut": {
+            "meanDelta": 0.04949742840055663,
+            "n": 31198,
+            "fracUp": 0.3921405218283223
+          }
+        },
+        "direction": {
+          "AtoA": 0.1855967202415276,
+          "AtoB": 0.1708297746844732,
+          "ABtoOut": 0.09832594059991469,
+          "BtoA": 0.153414428527478,
+          "BtoB": 0.21994580917043297,
+          "OutToAB": 0.06331238594059345,
+          "OutToOut": 0.04949742840055663
+        },
+        "seconds": 349.728
+      },
+      "rest": {
+        "mode": "rest",
+        "rule": "GB_NMDA_ETA0",
+        "cfg": {
+          "version": 2,
+          "rule": "GB_NMDA_ETA0",
+          "initialGain": 1,
+          "seed": 1,
+          "NE": 720,
+          "NI": 180,
+          "K": 8,
+          "M": 80,
+          "dt": 0.1,
+          "pIn": 0.1,
+          "pOut": 0.1,
+          "contacts": 10,
+          "sMin": 0.1,
+          "sMax": 9,
+          "rho0": 0.1,
+          "accel": 5,
+          "budget": 0.2,
+          "bg": 30,
+          "bgI": 12,
+          "stim": 52,
+          "seqStim": 58,
+          "b": 20,
+          "tauW": 300,
+          "pEI": 0.2,
+          "sEI": 1.5,
+          "pIE": 0.4,
+          "sIE": 4,
+          "pII": 0.4,
+          "sII": 4,
+          "eta": 0.02,
+          "target": 3,
+          "ieMax": 40
+        },
+        "plasticity": {
+          "tauCa": 20,
+          "Cpre": 0.8,
+          "Cpost": 1,
+          "thetaD": 1,
+          "thetaP": 1.3,
+          "gammaD": 200,
+          "gammaP": 321.808,
+          "tau": 150000,
+          "rhoStar": 0.5,
+          "D": 13.7,
+          "eta": 0,
+          "tauN": 40
+        },
+        "fingerprint": "6197bc993f453ed885bdd72f24927551ef07d84b92fb0637f1da0b1dbf10233b",
+        "trace": [
+          {
+            "seconds": 0,
+            "within": 0.1000000000000092,
+            "between": 0.09999999999993965,
+            "ungrouped": 0.10000000000001047
+          },
+          {
+            "seconds": 5,
+            "rE": 2.1286111111111112,
+            "rI": 5.587777777777778,
+            "within": 0.1099022263237505,
+            "between": 0.10999224507486105,
+            "ungrouped": 0.11013760489950396
+          },
+          {
+            "seconds": 10,
+            "rE": 2.350277777777778,
+            "rI": 5.997777777777777,
+            "within": 0.12147165255846064,
+            "between": 0.12124223099839103,
+            "ungrouped": 0.12093603462547967
+          },
+          {
+            "seconds": 15,
+            "rE": 2.7133333333333334,
+            "rI": 6.8744444444444435,
+            "within": 0.13408822842681847,
+            "between": 0.1335906589636995,
+            "ungrouped": 0.1333674512036476
+          },
+          {
+            "seconds": 20,
+            "rE": 3.1088888888888886,
+            "rI": 7.764444444444445,
+            "within": 0.14621816299394472,
+            "between": 0.14633865507278054,
+            "ungrouped": 0.1469620516439589
+          },
+          {
+            "seconds": 25,
+            "rE": 3.5425,
+            "rI": 8.853333333333333,
+            "within": 0.1591360799304907,
+            "between": 0.1585250081086585,
+            "ungrouped": 0.1595999797607544
+          },
+          {
+            "seconds": 30,
+            "rE": 3.876111111111111,
+            "rI": 9.864444444444445,
+            "within": 0.1682397573717771,
+            "between": 0.16764858144953534,
+            "ungrouped": 0.17025916974249192
+          }
+        ],
+        "seconds": 415.864
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "R3.1",
+      "name": "四类：组内 ≥ +0.15，输出/输入非特异增强 ≤ 10%/20%，组外 ≤ +0.01",
+      "ok": true,
+      "actual": {
+        "AtoA": {
+          "meanDelta": 0.21228030302192935,
+          "n": 630,
+          "fracUp": 0.765079365079365
+        },
+        "AtoOut": {
+          "meanDelta": 0.010060178173166436,
+          "n": 5117,
+          "fracUp": 0.09771350400625367
+        },
+        "OutToA": {
+          "meanDelta": 0.027070671704267565,
+          "n": 5132,
+          "fracUp": 0.22505845674201091
+        },
+        "OutToOut": {
+          "meanDelta": -0.00389237333929703,
+          "n": 40779,
+          "fracUp": 0.005517545795630104
+        }
+      }
+    },
+    {
+      "id": "R3.2",
+      "name": "方向差 ≥ 0.03，三个未经历类别平均 Δρ 各 ≤ +0.01",
+      "ok": true,
+      "actual": {
+        "AtoA": 0.13866398044539752,
+        "AtoB": 0.14379133674603484,
+        "ABtoOut": -0.008926504749795906,
+        "BtoA": 0.08884632466158254,
+        "BtoB": 0.22575098989512882,
+        "OutToAB": -0.007356550931929934,
+        "OutToOut": -0.020389716342325274
+      }
+    },
+    {
+      "id": "R3.3",
+      "name": "静息 30 s：各类 Δρ ≤ +0.005，组内/组间差 ≤ 0.005",
+      "ok": true,
+      "actual": {
+        "within": -0.0313404029447686,
+        "between": -0.03125088006456185,
+        "ungrouped": -0.031524512677607974
+      }
+    },
+    {
+      "id": "R3.0",
+      "name": "三种规则的九项测试全部保存",
+      "ok": true,
+      "actual": 9
+    }
+  ],
+  "ok": true,
+  "referenceControls": {
+    "AtoOutFraction": 0.9919550504586727,
+    "restAt5s": {
+      "seconds": 5,
+      "rE": 4.201666666666666,
+      "rI": 10.402222222222221,
+      "within": 0.2008184258708931,
+      "between": 0.19870384982080877,
+      "ungrouped": 0.20349148237760623
+    },
+    "gate": false
+  }
+}
