@@ -4,7 +4,7 @@
  * 先验证快速网络实现与第 1–3 层逐个突触的实现逐拍一致，再跑 demo/fig2-network.mjs 的完整实验。约 4 分钟。 */
 import { SpikingNetwork } from '../src/L4-network/spiking-network.mjs';
 import { SpikingCircuit } from '../src/L3-plasticity/circuit.mjs';
-import { GB_DP, GB_NMDA, pairingChange } from '../src/L3-plasticity/calcium-rule.mjs';
+import { GB_DP, GB_NMDA, GB_RATE, pairingChange } from '../src/L3-plasticity/calcium-rule.mjs';
 import { mammalianCosts } from '../src/L1-neuron/hh.mjs';
 import { runExperiment, CFG } from '../demo/fig2-network.mjs';
 import { checker, fmt } from '../src/core/check.mjs';
@@ -14,16 +14,22 @@ export function verifyL4Emergence({ quiet = false } = {}) {
   const costs = mammalianCosts();
   const pairs = [[0, 1], [1, 2], [2, 0], [0, 2]];
   const extra = (t) => [t % 200 < 60 ? 400 : 0, t % 300 < 40 ? 350 : 0, (t + 50) % 250 < 50 ? 380 : 0];
-  for (const [name, gb] of [['GB_DP', GB_DP], ['GB_NMDA', GB_NMDA]]) {
+  for (const [name, gb] of [['GB_DP', GB_DP], ['GB_NMDA', GB_NMDA], ['GB_RATE', GB_RATE]]) {
     const plastic = { sMin: 0.1, sMax: 4, rho0: 0.3, accel: 5 };
     const obj = new SpikingCircuit({ costs, seed: 1, neurons: [{}, {}, {}], synapses: pairs.map(([a, b]) => ({ pre: a, post: b, contacts: 10, pRelease: 0.3, tauRec: 100, plastic: { ...plastic, p: gb } })) });
-    obj.run(3000, { extra });
     const fast = new SpikingNetwork({ costs, pops: [{ name: 'E', n: 3 }], plasticity: gb });
     fast.connect({ pairs, contacts: 10, pRelease: 0.3, tauRec: 100, plastic });
-    fast.run(3000, { extra });
-    const same = obj.neurons.every((n, i) => n.spikes.length === fast.spikes[i].length && n.spikes.every((s, k) => s === fast.spikes[i][k]))
-      && obj.syn.every((s, k) => Math.abs(s.pl.rho - fast.groups[0].rho[k]) < 1e-12) && Math.abs(obj.ledger.total() - fast.ledger.total()) / obj.ledger.total() < 1e-12;
-    c.check(`快速网络与逐个突触的实现逐拍一致（钙规则 ${name}）：放电时刻、突触效能、ATP 全部相同`, same, `${obj.neurons.map((n) => n.spikes.length).join('/')} 次放电`);
+    let same = true, steps = 0, firstMismatch = null, maxRhoError = 0, maxAtpRelativeError = 0;
+    fast.run(3000, { extra, onStep: () => {
+      obj.run(obj.dt, { extra }); steps++;
+      const sameSpikes = obj.neurons.every((n, i) => n.spikes.length === fast.spikes[i].length && n.spikes.at(-1) === fast.spikes[i].at(-1));
+      const rhoError = Math.max(...obj.syn.map((s, k) => Math.abs(s.pl.rho - fast.groups[0].rho[k])));
+      const atpError = Math.abs(obj.ledger.total() - fast.ledger.total()) / obj.ledger.total();
+      maxRhoError = Math.max(maxRhoError, rhoError); maxAtpRelativeError = Math.max(maxAtpRelativeError, atpError);
+      if (!sameSpikes || rhoError >= 1e-12 || atpError >= 1e-12) { same = false; firstMismatch ??= steps; }
+    } });
+    c.check(`快速网络与逐个突触的实现逐拍一致（钙规则 ${name}）：放电时刻、突触效能、ATP 全部相同`, same,
+      `${steps} 步；${obj.neurons.map((n) => n.spikes.length).join('/')} 次放电；最大 ρ 误差 ${maxRhoError}，ATP 相对误差 ${maxAtpRelativeError}${firstMismatch ? `，首个差异在第 ${firstMismatch} 步` : ''}`);
   }
 
   const w = (d, p = {}) => pairingChange(d, { p: GB_NMDA, ...p });

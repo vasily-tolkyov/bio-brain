@@ -225,14 +225,19 @@ export class SpikingNetwork {
       if (this.nmda && gb.eta) {
         for (let j = 0; j < N; j++) if (fired[j]) this.nmda[j] += 1;
         for (const g of this.plastic) if (g.nm) for (let j = 0; j < N; j++) if (fired[j]) g.nm[j] += 1;
+        const y2 = gb.post2Tau ? (this.y2 ??= new Float64Array(N)) : null;
         for (const g of this.plastic) {
           if (g.frozen) continue;
           const tr = g.nm ?? this.nmda, eta = g.nm ? (gb.eta * gb.tauN) / g.plastic.tauN : gb.eta;
           for (let i = 0; i < N; i++) {
             if (!fired[i]) continue;
-            for (const k of g.incP[i]) g.z[k] += eta * gb.Cpre * tr[g.pre[k]];
+            const f = y2 ? y2[i] : 1;
+            if (f === 0) continue;
+            for (const k of g.incP[i]) g.z[k] += eta * gb.Cpre * tr[g.pre[k]] * f;
           }
         }
+        // 与 CalciumPlasticity 同序：用本次脉冲之前的迹，再先衰减、后加 1。
+        if (y2) { const d2 = Math.exp(-dt / gb.post2Tau); for (let i = 0; i < N; i++) { y2[i] *= d2; if (fired[i]) y2[i] += 1; } }
       }
       // 钙规则（与第 3 层 CalciumPlasticity 同序：到期的突触前钙先到，再按此刻的钙更新效能，最后钙衰减）
       while (this.pendHead < this.pending.length && this.pending[this.pendHead] <= t) { this.x[this.pending[this.pendHead + 1]] += 1; this.pendHead += 2; }

@@ -14,6 +14,10 @@ export const GB_DP = { tauCa: 20, Cpre: 1, Cpost: 2, thetaD: 1, thetaP: 1.3, gam
  * GB_DP 是为一对一配对实验拟合的：单个突触后脉冲的钙（2）就超过 θp，放进网络后任何放电神经元的全部输入都被推到 ρ ≈ 0.5，组内组间分不开 */
 export const GB_NMDA = { ...GB_DP, Cpre: 0.8, Cpost: 1.0, eta: 2 };
 
+/** 频率依赖变体：同时检测钙乘突触后 100 ms 慢速放电迹（取本次脉冲前的值）。
+ * 单次巧合的基础钙和 1.2 落在减弱区，突触后持续高频放电才推动增强；默认规则不变。 */
+export const GB_RATE = { ...GB_NMDA, Cpre: 0.6, Cpost: 0.6, eta: 1.2, post2Tau: 100 };
+
 export class CalciumPlasticity {
   constructor(p = {}, { rho0 = 0.5, accel = 1 } = {}) {
     this.p = { ...GB_DP, ...p };
@@ -21,6 +25,8 @@ export class CalciumPlasticity {
     this.accel = accel;
     this.c = 0;
     this.nmda = 0;
+    this.y2 = 0;
+    this.postFired = false;
     this.pending = [];
     this.timeAboveP = 0;
     this.timeAboveD = 0;
@@ -30,7 +36,9 @@ export class CalciumPlasticity {
   preSpike(t) { this.pending.push(t + this.p.D); this.nmda += 1; }
 
   postSpike() {
-    this.c += this.p.Cpost + this.p.eta * this.p.Cpre * this.nmda;
+    const f = this.p.post2Tau ? this.y2 : 1;
+    this.c += this.p.Cpost + this.p.eta * this.p.Cpre * this.nmda * f;
+    this.postFired = true;
   }
 
   step(dt, t) {
@@ -43,6 +51,8 @@ export class CalciumPlasticity {
     this.rho = Math.min(1, Math.max(0, r + (dt * this.accel * drive) / tau));
     this.c *= Math.exp(-dt / tauCa);
     this.nmda *= Math.exp(-dt / tauN);
+    if (this.p.post2Tau) this.y2 = this.y2 * Math.exp(-dt / this.p.post2Tau) + (this.postFired ? 1 : 0);
+    this.postFired = false;
   }
 }
 
