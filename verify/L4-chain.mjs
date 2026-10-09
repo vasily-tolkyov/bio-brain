@@ -33,7 +33,13 @@ export function verifyL4Chain({ trainMissing = true } = {}) {
   for (const item of checks) c.check(`${item.id} ${item.name}`, item.ok, JSON.stringify(item.actual));
   if (r.stopReason) c.note(r.stopReason);
   try {
-    const names = execFileSync('git', ['diff', '--name-only', 'stage/2-spiking-network', '--', 'src'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
+    const bases = ['refs/heads/stage/2-spiking-network', 'refs/remotes/origin/stage/2-spiking-network'];
+    const base = bases.find(ref => {
+      try { execFileSync('git', ['rev-parse', '--verify', ref], { cwd: ROOT, stdio: 'ignore' }); return true; }
+      catch { return false; }
+    });
+    if (!base) throw new Error('缺少 stage/2-spiking-network 或 origin/stage/2-spiking-network 作为 src 比较基线');
+    const names = execFileSync('git', ['diff', '--name-only', base, '--', 'src'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
     const allowed = ['src/L3-plasticity/calcium-rule.mjs', 'src/L4-network/spiking-network.mjs'];
     c.check('6.3 共享 src 改动仅限获准的两个文件', names.every(n => allowed.includes(n)), names.join(', ') || '与集成分支一致');
   } catch (error) { c.check('6.3 共享 src 改动仅限获准的两个文件', false, error.message); }
