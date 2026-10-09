@@ -28599,7 +28599,89 @@
       "failed": 18
     },
     "full": {
-      "status": "running"
+      "status": "finished",
+      "startedUtc": "2026-10-09T22:28:32.1243805Z",
+      "finishedUtc": "2026-10-09T23:13:19.3502617Z",
+      "seconds": 2687.2274306,
+      "exitCode": 1,
+      "internalSeconds": 2684,
+      "layers": [
+        {
+          "name": "L1",
+          "exitCode": 0,
+          "seconds": 0
+        },
+        {
+          "name": "L2",
+          "exitCode": 0,
+          "seconds": 0
+        },
+        {
+          "name": "L3",
+          "exitCode": 0,
+          "seconds": 52
+        },
+        {
+          "name": "L4",
+          "exitCode": 0,
+          "seconds": 14
+        },
+        {
+          "name": "L4b",
+          "exitCode": 0,
+          "seconds": 234
+        },
+        {
+          "name": "L4c",
+          "exitCode": 0,
+          "seconds": 15
+        },
+        {
+          "name": "L4d",
+          "exitCode": 0,
+          "seconds": 87
+        },
+        {
+          "name": "L4e",
+          "exitCode": 0,
+          "seconds": 572
+        },
+        {
+          "name": "L4f",
+          "exitCode": 0,
+          "seconds": 1701
+        },
+        {
+          "name": "L4h",
+          "exitCode": 0,
+          "seconds": 0
+        },
+        {
+          "name": "L4g",
+          "exitCode": 1,
+          "seconds": 0
+        },
+        {
+          "name": "L5",
+          "exitCode": 0,
+          "seconds": 10
+        }
+      ],
+      "defaultRegressionsPass": true,
+      "scientificAcceptancePass": false,
+      "failedLayers": [
+        "L4g"
+      ],
+      "failureReason": "S2 平均方向差不足，两次补救用尽；S3–S5 按停止条件未运行"
+    },
+    "cacheIntegrity": {
+      "originalCount": 50,
+      "originalUnchanged": 50,
+      "totalCount": 74,
+      "newCount": 24,
+      "newChainCount": 15,
+      "newRateRuleCount": 9,
+      "audit": "experiments/logs/2026-10-09-attractor-chain-v2/cache-integrity.json"
     }
   }
 }
