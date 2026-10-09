@@ -683,7 +683,9 @@ export function drawFigure(result = readResults()) {
   const c = new Canvas(1440, 1060, [248, 250, 252]), ink = [25, 40, 55], muted = [90, 104, 118];
   const colors = [...PALETTE, [23, 170, 165]], actual = result.sequence?.direction ?? result.attractors?.weights;
   c.text(30, 22, 'DIRECTED ATTRACTOR CHAIN V2 - GB_RATE', ink, 3);
-  c.text(30, 58, `P-IN ${result.config?.pIn ?? 0.1}  BG ${result.config?.bg ?? 28}  ${result.stopReason ? 'STOPPED' : 'MEASURED'}`, muted, 2);
+  const training = result.sequence?.training;
+  const stageLabel = training ? `SEQ ${training.episodes} X ${training.itemMs}MS` : 'ATTRACTORS';
+  c.text(30, 58, `P-IN ${result.config?.pIn ?? 0.25}  BG ${result.config?.bg ?? 30}  G-LEARN ${result.learningGain?.selected?.G ?? '-'}  ${stageLabel}  ${result.stopReason ? 'STOPPED' : 'MEASURED'}`, muted, 2);
   const panel = (x, y, title) => { c.rect(x, y, 675, 445, [255, 255, 255]); c.text(x + 18, y + 16, title, ink, 2); };
   panel(25, 100, 'A. LEARNED MEAN RHO'); panel(740, 100, 'B. DECODED STATES - 20 TRIALS');
   panel(25, 575, 'C. OBSERVED TRANSITIONS'); panel(740, 575, 'D. BRANCH COUNTS AND DWELL TIMES');
