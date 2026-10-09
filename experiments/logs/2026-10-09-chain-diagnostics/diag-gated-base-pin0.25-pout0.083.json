@@ -1,0 +1,98 @@
+{
+ "mode": "gated",
+ "rule": "base-pin0.25-pout0.083",
+ "plasticity": {
+  "tauCa": 20,
+  "Cpre": 0.8,
+  "Cpost": 1,
+  "thetaD": 1,
+  "thetaP": 1.3,
+  "gammaD": 200,
+  "gammaP": 321.808,
+  "tau": 150000,
+  "rhoStar": 0.5,
+  "D": 13.7,
+  "eta": 2,
+  "tauN": 40
+ },
+ "cfg": {
+  "seed": 1,
+  "NE": 720,
+  "NI": 180,
+  "K": 8,
+  "M": 80,
+  "dt": 0.1,
+  "pIn": 0.25,
+  "pOut": 0.083,
+  "contacts": 10,
+  "sMin": 0.1,
+  "sMax": 9,
+  "rho0": 0.1,
+  "accel": 5,
+  "budget": 0.2,
+  "bg": 30,
+  "bgI": 12,
+  "stim": 52,
+  "b": 20,
+  "tauW": 300,
+  "pEI": 0.2,
+  "sEI": 1.5,
+  "pIE": 0.4,
+  "sIE": 4,
+  "pII": 0.4,
+  "sII": 4,
+  "eta": 0.02,
+  "target": 3,
+  "ieMax": 40
+ },
+ "counts": [
+  42,
+  35,
+  38,
+  34,
+  35,
+  46,
+  36,
+  34
+ ],
+ "stats": {
+  "within": 0.4389,
+  "between": 0.1115,
+  "ungrouped": 0.1607,
+  "ratio": 3.935,
+  "ie": 6.053
+ },
+ "groups": {
+  "off": 0.1115,
+  "ratios": [
+   4.162,
+   3.963,
+   4.466,
+   3.43,
+   4.131,
+   4.148,
+   3.594,
+   3.574
+  ]
+ },
+ "completion": {
+  "perGroup": [
+   15.829,
+   13.021,
+   11.227,
+   7.624,
+   10.201,
+   4.362,
+   8.7,
+   8.931
+  ],
+  "meanDelta": 9.987,
+  "positive": 8
+ },
+ "rest": {
+  "rE": 2.85,
+  "rI": 6.24,
+  "ignition": 0.607
+ },
+ "seconds": 1196.307
+}

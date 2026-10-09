@@ -1,0 +1,102 @@
+{
+ "mode": "classes",
+ "rule": "rg-e0-t100",
+ "plasticity": {
+  "tauCa": 20,
+  "Cpre": 0.8,
+  "Cpost": 1,
+  "thetaD": 1,
+  "thetaP": 1.3,
+  "gammaD": 200,
+  "gammaP": 321.808,
+  "tau": 150000,
+  "rhoStar": 0.5,
+  "D": 13.7,
+  "eta": 0,
+  "tauN": 40,
+  "post2Tau": 100
+ },
+ "cfg": {
+  "seed": 1,
+  "NE": 720,
+  "NI": 180,
+  "K": 8,
+  "M": 80,
+  "dt": 0.1,
+  "pIn": 0.1,
+  "pOut": 0.1,
+  "contacts": 10,
+  "sMin": 0.1,
+  "sMax": 9,
+  "rho0": 0.1,
+  "accel": 5,
+  "budget": 0.2,
+  "bg": 30,
+  "bgI": 12,
+  "stim": 52,
+  "b": 20,
+  "tauW": 300,
+  "pEI": 0.2,
+  "sEI": 1.5,
+  "pIE": 0.4,
+  "sIE": 4,
+  "pII": 0.4,
+  "sII": 4,
+  "eta": 0.02,
+  "target": 3,
+  "ieMax": 40
+ },
+ "budgetOn": {
+  "classes": {
+   "AtoA": {
+    "meanDelta": 0.2187,
+    "fracUp": 0.984,
+    "n": 630
+   },
+   "AtoOut": {
+    "meanDelta": 0.0633,
+    "fracUp": 0.459,
+    "n": 5117
+   },
+   "OutToA": {
+    "meanDelta": 0.0581,
+    "fracUp": 0.459,
+    "n": 5132
+   },
+   "OutToOut": {
+    "meanDelta": 0.0073,
+    "fracUp": 0.074,
+    "n": 40779
+   }
+  },
+  "rateA": 13.5,
+  "rateOutside": 1.8
+ },
+ "budgetOff": {
+  "classes": {
+   "AtoA": {
+    "meanDelta": 0.2689,
+    "fracUp": 0.984,
+    "n": 630
+   },
+   "AtoOut": {
+    "meanDelta": 0.0833,
+    "fracUp": 0.502,
+    "n": 5117
+   },
+   "OutToA": {
+    "meanDelta": 0.1173,
+    "fracUp": 0.645,
+    "n": 5132
+   },
+   "OutToOut": {
+    "meanDelta": 0.0113,
+    "fracUp": 0.097,
+    "n": 40779
+   }
+  },
+  "rateA": 14.7,
+  "rateOutside": 1.89
+ },
+ "seconds": 198.683
+}
