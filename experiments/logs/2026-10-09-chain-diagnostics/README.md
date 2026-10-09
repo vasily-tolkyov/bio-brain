@@ -35,4 +35,3 @@
 | diag-rest-rg-e1.2-t100-cpre0.6-cpost0.6.json | rest | 0.6 / 0.6 | 1.2 | 100 | 0.1 / 0.1 |
 | diag-rest.json | rest |  /  |  |  | 0.1 / 0.1 |
 | diag-ungated-rg-e1.2-t100-cpre0.6-cpost0.6.json | ungated | 0.6 / 0.6 | 1.2 | 100 | 0.1 / 0.1 |
-
