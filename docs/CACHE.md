@@ -100,3 +100,19 @@ Expand-Archive bio-brain-cache-2026-10-06.zip -DestinationPath cache
 ## 合计与来源
 
 共 48 个文件：1 + 9 + 1 + 2 + 12 + 1 + 10 + 7 + 2 + 3。来源为公开发布计划附录 A5、现有 cache 文件名与关联脚本。实验结果的意义见[路线图](ROADMAP.md)和[完整技术说明](../README.zh-CN.md)。
+
+## 有向通道演化链 v2：新增实验缓存
+
+这一族不在上述 48 个发布缓存中。对应[实验标签 attempt/2/attractor-chain-v2](https://github.com/vasily-tolkyov/bio-brain/tree/attempt/2/attractor-chain-v2) 的 GB_RATE 实验，配置、来源权重和学习增益均有指纹校验；不能与第一版的 `chain-*` 混用。实验过程及停止条件见[尝试记录](stages/2-spiking-network/attempts/attractor-chain-v2.md)。本次通过规则、吸引子和学习增益门槛，S2 两次补救后仍失败，后续阶段未运行。
+
+- `chain-v2-attractor-progress.json`、`chain-v2-attractors.json`：300 次变体训练的精确续算检查点与最终吸引子权重。
+- `chain-v2-learn-g*.json`：六个学习态增益的静息、补全测量；只读权重，不重新训练。
+- `chain-v2-sequence-*.json`、`chain-v2-main.json`：序列训练与两次允许的补救；`*-progress.json` 保存完整动力学和随机数状态。
+- `chain-v2-calib-g*-b*.json`：24 个演化态工作点。
+- `chain-v2-trials-*.json`、`chain-v2-control-*.json`、`chain-v2-shuffled*.json`：主测试、四种动力学对照与原规则比较；后缀 `-gbnmda` 为原规则对照的独立缓存。
+
+只有实际运行的阶段才会生成相应文件。产生脚本为标签上的 [demo/attractor-chain.mjs](https://github.com/vasily-tolkyov/bio-brain/blob/attempt/2/attractor-chain-v2/demo/attractor-chain.mjs)，通过 `MODE=attractors/learn-gain/sequence/calib/test/controls` 分阶段运行；并行测量进程只写各自缓存，聚合结果由 `COLLECT_ONLY=1` 单独生成。首次完成全部阶段约需数小时，失败时按记录中的门槛停止。
+
+规则验收另外保存九个 `rate-rule-{classes,direction,rest}-{gb_rate,gb_nmda,gb_nmda_eta0}.json`，由标签上的 [demo/rate-rule.mjs](https://github.com/vasily-tolkyov/bio-brain/blob/attempt/2/attractor-chain-v2/demo/rate-rule.mjs) 生成，包含配置和规则参数指纹。这些缓存同样不进入 Git；九项汇总数据保存在标签上的 `figures/rate-rule-results.json`。
+
+本次实际新增 15 个链缓存与九个规则缓存；与 48 个发布缓存及两个第一版缓存合计 74 个。完整回归后的哈希核对确认原有 50 个缓存全部未变；新增文件清单与 SHA-256 见标签上的 `experiments/logs/2026-10-09-attractor-chain-v2/cache-snapshot.json`，核对记录见同目录的 `cache-integrity.json`。
