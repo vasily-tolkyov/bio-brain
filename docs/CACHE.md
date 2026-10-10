@@ -115,4 +115,20 @@ Expand-Archive bio-brain-cache-2026-10-06.zip -DestinationPath cache
 
 规则验收另外保存九个 `rate-rule-{classes,direction,rest}-{gb_rate,gb_nmda,gb_nmda_eta0}.json`，由标签上的 [demo/rate-rule.mjs](https://github.com/vasily-tolkyov/bio-brain/blob/attempt/2/attractor-chain-v2/demo/rate-rule.mjs) 生成，包含配置和规则参数指纹。这些缓存同样不进入 Git；九项汇总数据保存在标签上的 `figures/rate-rule-results.json`。
 
-本次实际新增 15 个链缓存与九个规则缓存；与 48 个发布缓存及两个第一版缓存合计 74 个。完整回归后的哈希核对确认原有 50 个缓存全部未变；新增文件清单与 SHA-256 见标签上的 `experiments/logs/2026-10-09-attractor-chain-v2/cache-snapshot.json`，核对记录见同目录的 `cache-integrity.json`。
+v2 完成时实际新增 15 个链缓存与九个规则缓存；与 48 个发布缓存及两个第一版缓存合计 74 个。完整回归后的哈希核对确认原有 50 个缓存全部未变；新增文件清单与 SHA-256 见标签上的 `experiments/logs/2026-10-09-attractor-chain-v2/cache-snapshot.json`，核对记录见同目录的 `cache-integrity.json`。
+
+## 有向通道演化链 v3：动力学需求与学习候选
+
+代码与数据位于[实验标签 attempt/2/attractor-chain-v3](https://github.com/vasily-tolkyov/bio-brain/tree/attempt/2/attractor-chain-v3)。v3 从 v2 的 320×40 ms 权重开始，不改 `src` 或版本为 2 的 `CONFIG`。四种学习设置、来源权重和测量条件写入新缓存的独立指纹。开始前的 74 个缓存按 SHA-256 核对，均作为只读输入。设计与决策规则见[v3 尝试记录](stages/2-spiking-network/attempts/attractor-chain-v3.md)。
+
+- `chain-v3-calib-g{G}-b{b}.json`：六个增益 × 四个适应强度，每点十次终点 F 线索和 3 s 静息。
+- `chain-v3-dose-k{k}.json` 及其 `-progress.json`：k=1/2/3/5 的剂量诊断。人工放大只改七条正向连接，记录截断与实际组平均；k>1 的结果用于测需求，不能代替学到权重的成功证据。
+- `chain-v3-seq-{L1a,L1b,L1c,L1d}-{160,320}-40.json` 及其 `-progress.json`：四个候选的序列状态；320 回合只在决策规则授权唯一一次补救时生成。检查点还保存候选突触前 NMDA 迹，用于精确续算。
+- `chain-v3-rate-{classes,rest}-{候选}.json`：候选四类选择性与 30 s 静息复查，汇总为 `figures/rate-rule-v3.json`。
+- `chain-v3-cand-*.json`：情形 B 的候选完整标定网格；`chain-v3-main-*.json`、`chain-v3-control-*.json`、`chain-v3-shuffled*.json`：学到权重的主测试、四项对照与倒序重训。
+
+仅实际执行的阶段才生成缓存。产生脚本为 `demo/attractor-chain.mjs` 的 `MODE=v3-calib/v3-sequence/v3-dose/v3-decision/v3-remedy/v3-test/v3-controls/v3-all`，候选参数 `CANDIDATE` 和并行工作条件 `G/B/K/CONTROL` 均受固定列表限制。工作进程只写各自缓存，结果用 `COLLECT_ONLY=1` 或 `MODE=v3-learning-collect` 聚合；`v3-all` 可按相同决策规则依次重做。规则复查由 `demo/rate-rule.mjs` 的 `CANDIDATE` 参数传入，`MODE=all` 对该候选只运行四类和静息。
+
+哈希基线与结束核对分别为 `experiments/logs/2026-10-09-attractor-chain-v3/cache-before.json`、`cache-integrity.json`。新增缓存同样不进入 Git；完整测量汇总在 `figures/chain-results.json` 的 `v3` 节，图为 `figures/fig14-chain-dose.png`。
+
+本次实际新增 24 个标定缓存、四个候选状态及四个续算检查点、八个规则复查缓存，共 40 个；合计 114 个。24 点无工作点，按情形 C 停止，剂量、候选重标定、320 回合补救、主测试和对照缓存均未生成。原有 74 个文件的 SHA-256 全部不变。
