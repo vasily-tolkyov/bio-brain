@@ -1,0 +1,63 @@
+标定汇总 v2-320-40: 24/24, 工作点 无
+L1a: Ef=0.034825, Eb=0.014117, usable=false
+L1b: Ef=0.029814, Eb=0.012931, usable=false
+L1c: Ef=0.087110, Eb=0.021483, usable=true
+L1d: Ef=0.054540, Eb=0.012777, usable=false
+最佳可用候选：L1c
+D1 summary: {"points":24,"passing":0,"maxHold":0.1,"workingPoint":null}
+L1 summary: [
+  {
+    "candidate": "L1a",
+    "Ef": 0.03482536854823016,
+    "Eb": 0.014116831339838543,
+    "within": 0.3815280798565523,
+    "usable": false,
+    "failed": [
+      "classes",
+      "eachDirection",
+      "branch",
+      "experience"
+    ],
+    "minDirection": 0.003782461120620695,
+    "ignition": 0.013333333333333334
+  },
+  {
+    "candidate": "L1b",
+    "Ef": 0.029813930382791863,
+    "Eb": 0.012931385371069644,
+    "within": 0.3746004237039157,
+    "usable": false,
+    "failed": [
+      "classes",
+      "eachDirection",
+      "branch",
+      "experience"
+    ],
+    "minDirection": -0.0021448244596729976,
+    "ignition": 0.013333333333333334
+  },
+  {
+    "candidate": "L1c",
+    "Ef": 0.08711045647219368,
+    "Eb": 0.021483460735013074,
+    "within": 0.44468251859855734,
+    "usable": true,
+    "failed": [],
+    "minDirection": 0.050468678946520656,
+    "ignition": 0
+  },
+  {
+    "candidate": "L1d",
+    "Ef": 0.05453971449993146,
+    "Eb": 0.012777329276111395,
+    "within": 0.4031879826841361,
+    "usable": false,
+    "failed": [
+      "classes",
+      "branch"
+    ],
+    "minDirection": 0.026867480232323653,
+    "ignition": 0.006666666666666667
+  }
+]
+决策：{"case":"C","action":"stop","reason":"D1 完整网格没有工作点","kStar":null,"Ereq":null}

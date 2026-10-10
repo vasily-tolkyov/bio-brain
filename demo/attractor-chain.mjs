@@ -2,6 +2,7 @@
  * MODE=attractors/learn-gain/sequence/calib/test/controls/fig/all；BG/BG_I 仅用于计划允许的背景标定。
  * 学习态：兴奋学习按窗口冻结，Vogels 全程学习；演化态：全部冻结、绝对增益 G、适应 B。
  * 缓存保存连接效能及明确的配置指纹；结果与验收使用计划指定的时间分箱。
+ * v3 模式见 attractor-chain-v3.mjs；独立设置与 chain-v3-* 缓存保持 CONFIG 和 v2 文件不变。
  */
 import fs from 'node:fs';
 import path from 'node:path';

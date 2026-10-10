@@ -1,0 +1,5 @@
+Dose 1: {"background":0.030650422280834404,"Ef":0.05608192900900036,"changed":0,"clipped":0,"forkBefore":1.2617669208787794,"forkAfter":1.2617669208787794}
+Dose 2: {"background":0.030650422280834404,"Ef":0.11216385801800079,"changed":3626,"clipped":0,"forkBefore":1.2617669208787794,"forkAfter":1.2617669208787832}
+Dose 3: {"background":0.030650422280834404,"Ef":0.16824578702700113,"changed":3626,"clipped":0,"forkBefore":1.2617669208787794,"forkAfter":1.261766920878781}
+Dose 5: {"background":0.030650422280834404,"Ef":0.2778852022813721,"changed":3626,"clipped":67,"forkBefore":1.2617669208787794,"forkAfter":1.2643655762741963}
+Smallest passing gain, middle bias, non-monotone dose selection, cases A/B/C and the sole 80%-threshold remedy all passed.

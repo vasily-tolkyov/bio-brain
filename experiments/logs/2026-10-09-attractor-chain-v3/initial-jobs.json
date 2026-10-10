@@ -1,0 +1,201 @@
+{
+  "limit": 15,
+  "jobs": [
+    {
+      "name": "d1-g0.6",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "0.6"
+      },
+      "status": "finished",
+      "pid": 24956,
+      "startedUtc": "2026-10-10T05:27:28.982Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:05:49.339Z"
+    },
+    {
+      "name": "d1-g0.7",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "0.7"
+      },
+      "status": "finished",
+      "pid": 11772,
+      "startedUtc": "2026-10-10T05:27:28.992Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:05:51.979Z"
+    },
+    {
+      "name": "d1-g0.8",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "0.8"
+      },
+      "status": "finished",
+      "pid": 2868,
+      "startedUtc": "2026-10-10T05:27:28.998Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:06:41.357Z"
+    },
+    {
+      "name": "d1-g0.9",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "0.9"
+      },
+      "status": "finished",
+      "pid": 7524,
+      "startedUtc": "2026-10-10T05:27:29.006Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:05:40.073Z"
+    },
+    {
+      "name": "d1-g1",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "1"
+      },
+      "status": "finished",
+      "pid": 15792,
+      "startedUtc": "2026-10-10T05:27:29.014Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:05:16.213Z"
+    },
+    {
+      "name": "d1-g1.2",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-calib",
+        "G": "1.2"
+      },
+      "status": "finished",
+      "pid": 3076,
+      "startedUtc": "2026-10-10T05:27:29.023Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:06:04.769Z"
+    },
+    {
+      "name": "l1-seq-L1a",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-sequence",
+        "CANDIDATE": "L1a"
+      },
+      "status": "finished",
+      "pid": 3840,
+      "startedUtc": "2026-10-10T05:27:29.034Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:06:11.906Z"
+    },
+    {
+      "name": "l1-seq-L1b",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-sequence",
+        "CANDIDATE": "L1b"
+      },
+      "status": "finished",
+      "pid": 18124,
+      "startedUtc": "2026-10-10T05:27:29.046Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:06:54.859Z"
+    },
+    {
+      "name": "l1-seq-L1c",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-sequence",
+        "CANDIDATE": "L1c"
+      },
+      "status": "finished",
+      "pid": 3864,
+      "startedUtc": "2026-10-10T05:27:29.059Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:05:39.452Z"
+    },
+    {
+      "name": "l1-seq-L1d",
+      "script": "demo/attractor-chain.mjs",
+      "env": {
+        "MODE": "v3-sequence",
+        "CANDIDATE": "L1d"
+      },
+      "status": "finished",
+      "pid": 13808,
+      "startedUtc": "2026-10-10T05:27:29.073Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T06:04:44.833Z"
+    },
+    {
+      "name": "l1-rule-L1a",
+      "script": "demo/rate-rule.mjs",
+      "env": {
+        "MODE": "all",
+        "CANDIDATE": "L1a"
+      },
+      "status": "finished",
+      "pid": 26716,
+      "startedUtc": "2026-10-10T05:27:29.093Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T05:56:22.861Z"
+    },
+    {
+      "name": "l1-rule-L1b",
+      "script": "demo/rate-rule.mjs",
+      "env": {
+        "MODE": "all",
+        "CANDIDATE": "L1b"
+      },
+      "status": "finished",
+      "pid": 16664,
+      "startedUtc": "2026-10-10T05:27:29.103Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T05:55:35.211Z"
+    },
+    {
+      "name": "l1-rule-L1c",
+      "script": "demo/rate-rule.mjs",
+      "env": {
+        "MODE": "all",
+        "CANDIDATE": "L1c"
+      },
+      "status": "finished",
+      "pid": 25612,
+      "startedUtc": "2026-10-10T05:27:29.120Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T05:55:57.655Z"
+    },
+    {
+      "name": "l1-rule-L1d",
+      "script": "demo/rate-rule.mjs",
+      "env": {
+        "MODE": "all",
+        "CANDIDATE": "L1d"
+      },
+      "status": "finished",
+      "pid": 28144,
+      "startedUtc": "2026-10-10T05:27:29.133Z",
+      "exitCode": 0,
+      "signal": null,
+      "finishedUtc": "2026-10-10T05:55:34.287Z"
+    }
+  ]
+}

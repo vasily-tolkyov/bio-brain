@@ -1,0 +1,202 @@
+[
+  {
+    "name": "chain-v3-calib-g0.6-b20.json",
+    "bytes": 465129,
+    "sha256": "69A826FA6F649C0505B404C0FDBD0B4FE938CA8D09A63AC8E4AE492D2F45F593"
+  },
+  {
+    "name": "chain-v3-calib-g0.6-b40.json",
+    "bytes": 463899,
+    "sha256": "7F674C2770A1F7D83B93462B9C73CCB27944092A7350BEB05366C7E5CF9EDB73"
+  },
+  {
+    "name": "chain-v3-calib-g0.6-b60.json",
+    "bytes": 460436,
+    "sha256": "F6CFA5E3DB6DDE7BE9F6E26B3D152F9E02ACAE09E0B1FBBA4113C584ADC694ED"
+  },
+  {
+    "name": "chain-v3-calib-g0.6-b80.json",
+    "bytes": 459781,
+    "sha256": "8E451C74F3A17B230B7EE1187DFFE6AAFF1CC2F5F1FEB12DE11A5F8B3747FD48"
+  },
+  {
+    "name": "chain-v3-calib-g0.7-b20.json",
+    "bytes": 469944,
+    "sha256": "D6F2D7553818E8503619411C99AADFE7E055BA8BD48310E9EF93506313F9DC64"
+  },
+  {
+    "name": "chain-v3-calib-g0.7-b40.json",
+    "bytes": 467065,
+    "sha256": "3928A523C3F6A1063E890C0AF1C2344C6DC110FC05C27DE15E1E66D293D30A81"
+  },
+  {
+    "name": "chain-v3-calib-g0.7-b60.json",
+    "bytes": 465106,
+    "sha256": "1FC12E7D7A69F35277240883D832AC6FCEA97EB196C91252CEA9D2CF16C4DAB8"
+  },
+  {
+    "name": "chain-v3-calib-g0.7-b80.json",
+    "bytes": 461199,
+    "sha256": "F96D9319DF45D747D03CF0ADFF1504B4309D837B04599B3A8AAF0BB2F5AB0721"
+  },
+  {
+    "name": "chain-v3-calib-g0.8-b20.json",
+    "bytes": 471096,
+    "sha256": "4169B56020BE0D6C278D09F2BCF95F8306B8DF36C0A50A4E82B816B351080247"
+  },
+  {
+    "name": "chain-v3-calib-g0.8-b40.json",
+    "bytes": 469132,
+    "sha256": "82EF823081AC19AA70A8DD07E53E00B5A115FAE2C912FA1BE3075A09B9736AE0"
+  },
+  {
+    "name": "chain-v3-calib-g0.8-b60.json",
+    "bytes": 468424,
+    "sha256": "26D9AD74F574817E8D09DBFD39D7570E635A76F70808DB037470A13EEF017188"
+  },
+  {
+    "name": "chain-v3-calib-g0.8-b80.json",
+    "bytes": 464203,
+    "sha256": "D321B6623932E98136061FD40D3DD6743BD7B7E9647C354C49835DE7CD131196"
+  },
+  {
+    "name": "chain-v3-calib-g0.9-b20.json",
+    "bytes": 470722,
+    "sha256": "920DCA2E684152B5587D9F07C995E436445A02228F3B258F5727A67D98362445"
+  },
+  {
+    "name": "chain-v3-calib-g0.9-b40.json",
+    "bytes": 469481,
+    "sha256": "3651F5D1DF9EDDCFC106326A9E3EFFE5B3517919C99C6B62CA0AFFC50274EECE"
+  },
+  {
+    "name": "chain-v3-calib-g0.9-b60.json",
+    "bytes": 468437,
+    "sha256": "6233B33D92024D54920DAF89568902DDEBEFCF1167098B9DEFB23AD5961A53E3"
+  },
+  {
+    "name": "chain-v3-calib-g0.9-b80.json",
+    "bytes": 470601,
+    "sha256": "166807C1EF7012CB4B612E91FCDA61FCF0343E6B2384302C478D067C07AD0FF7"
+  },
+  {
+    "name": "chain-v3-calib-g1-b20.json",
+    "bytes": 476833,
+    "sha256": "FAF47A377C7313F90E7FC14FC4CE0F8B9D492AF672E88D5C2271665FE4470FC7"
+  },
+  {
+    "name": "chain-v3-calib-g1-b40.json",
+    "bytes": 467143,
+    "sha256": "BB16E2B6181BBE8A69072C4EDB27DA48BF6FCD091B1578E9A900C68A5AAB86F4"
+  },
+  {
+    "name": "chain-v3-calib-g1-b60.json",
+    "bytes": 466403,
+    "sha256": "1D6F6C498515606F9BC65446498F73FF43BD74D8E48732CD6DF41D1933F809B7"
+  },
+  {
+    "name": "chain-v3-calib-g1-b80.json",
+    "bytes": 465754,
+    "sha256": "0835A311372BDB40C18FEBD0B52068AB493077BD8A8AFC97CF70A834D2D84602"
+  },
+  {
+    "name": "chain-v3-calib-g1.2-b20.json",
+    "bytes": 473517,
+    "sha256": "5D7BC7E3456FDE170FEF82444631E34923FE2B164A752010CB8BF92F1BD8903F"
+  },
+  {
+    "name": "chain-v3-calib-g1.2-b40.json",
+    "bytes": 476582,
+    "sha256": "AACAE7137A81E93EBDC5ED8D61A6C5F14BD16E6DEA06364AD3F922153220C8CD"
+  },
+  {
+    "name": "chain-v3-calib-g1.2-b60.json",
+    "bytes": 464133,
+    "sha256": "CC849052AFCBFE0EAC2FBCB75584967124AACD7AB61F3407C6BA5C0458E2A8A6"
+  },
+  {
+    "name": "chain-v3-calib-g1.2-b80.json",
+    "bytes": 463237,
+    "sha256": "27175D3550DCE34DE513572B31866C74277B6D08AFC0D905A7C3666804147650"
+  },
+  {
+    "name": "chain-v3-rate-classes-L1a.json",
+    "bytes": 2568,
+    "sha256": "0EEAE6FC551C9632E6622D03BBEB7B1D71B4E221C2C90837FC20D4E20054CECD"
+  },
+  {
+    "name": "chain-v3-rate-classes-L1b.json",
+    "bytes": 2582,
+    "sha256": "C90B94F9F7F0AF0E21B2831399C15044122EF61282760BF37DA56FE227248135"
+  },
+  {
+    "name": "chain-v3-rate-classes-L1c.json",
+    "bytes": 2579,
+    "sha256": "9FBBA6A9C0AC660E9D67B44A395E076430E22612655CF0B896D4270595351F19"
+  },
+  {
+    "name": "chain-v3-rate-classes-L1d.json",
+    "bytes": 2606,
+    "sha256": "AEA4C0D5F462A14CEECE06852CCC397334EA6AB57C850CFC841CAA5163F8E283"
+  },
+  {
+    "name": "chain-v3-rate-rest-L1a.json",
+    "bytes": 2754,
+    "sha256": "71DB1C0AD0AAB39E32045E7AF046472985DDEB614FE2F8F09297B2F302FAAA38"
+  },
+  {
+    "name": "chain-v3-rate-rest-L1b.json",
+    "bytes": 2743,
+    "sha256": "8ADAD4794D3759C2E7F39620A1C7A54F8E7314489B95CE711E88A610A210E20F"
+  },
+  {
+    "name": "chain-v3-rate-rest-L1c.json",
+    "bytes": 2749,
+    "sha256": "C693E0009CB6413DC3BE026E7241D177000771C833E112C629E9894A4F413C6B"
+  },
+  {
+    "name": "chain-v3-rate-rest-L1d.json",
+    "bytes": 2785,
+    "sha256": "69723694E13203D7105160E891B88F51EAAED0E7D944B1FAE0C60FFD47FECE46"
+  },
+  {
+    "name": "chain-v3-seq-L1a-160-40-progress.json",
+    "bytes": 3964483,
+    "sha256": "8000F508A8661A3B48DD188D2C73CBC971FC5CBD74453BCD1396B1E531A865B1"
+  },
+  {
+    "name": "chain-v3-seq-L1a-160-40.json",
+    "bytes": 2437145,
+    "sha256": "7C119850C2C9D86B785637264020E44579A646838327D312C447C515A4A7A8BD"
+  },
+  {
+    "name": "chain-v3-seq-L1b-160-40-progress.json",
+    "bytes": 3922383,
+    "sha256": "A9DD4F6EE9FE87FC075F5CE3CDC5DB268D1B49F95BEFAAEA9FC2E510865D3659"
+  },
+  {
+    "name": "chain-v3-seq-L1b-160-40.json",
+    "bytes": 2430609,
+    "sha256": "C4335A3062BF23116634807245A3D240C76800911F1148610F4C1B2FD85727AB"
+  },
+  {
+    "name": "chain-v3-seq-L1c-160-40-progress.json",
+    "bytes": 3943728,
+    "sha256": "D0140A01E233D91B98CCF825B3B3F1F128FA306F05754C656026153B5D2C57F9"
+  },
+  {
+    "name": "chain-v3-seq-L1c-160-40.json",
+    "bytes": 2447835,
+    "sha256": "FB413107BD182A6615B2D3F3262591C8F30132BCC61C379F95F0737DAD8076A4"
+  },
+  {
+    "name": "chain-v3-seq-L1d-160-40-progress.json",
+    "bytes": 3908346,
+    "sha256": "157D4BA5C499A41564BD87DA8835DE2CFFDFEC574A17CFAACAC158AB49409A1A"
+  },
+  {
+    "name": "chain-v3-seq-L1d-160-40.json",
+    "bytes": 2454408,
+    "sha256": "7AED7C4667D1860DF48CB6F2217B8AE6F82C91197AD5B4B31339E942D6D79EC0"
+  }
+]

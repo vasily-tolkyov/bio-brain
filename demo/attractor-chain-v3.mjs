@@ -293,10 +293,16 @@ export function v3Checks(v3 = getV3()) {
   } catch (error) { decisionActual = error.message; }
   const allGrid = grid.length === 24 && G_GRID.every(G => B_GRID.every(b => grid.filter(p => p.G === G && p.b === b).length === 1));
   const main = v3.mainTest, controls = v3.controls ?? {};
+  const gridValues = [p => p.holdRate, p => p.endRate, p => p.activeRate, p => p.rest.ignitionRate];
+  const gridCoverage = allGrid ? calibrationChecks(grid[0]).map((condition, i) => ({ id: `D1.${condition.id}`,
+    name: `完整网格中存在满足条件的点：${condition.name}`, ok: grid.some(p => calibrationChecks(p)[i].ok),
+    actual: { min: Math.min(...grid.map(gridValues[i])), max: Math.max(...grid.map(gridValues[i])),
+      matchingPoints: grid.filter(p => calibrationChecks(p)[i].ok).map(p => ({ G: p.G, b: p.b })) } })) : missing(['D1.3.1', 'D1.3.2', 'D1.3.3', 'D1.3.4'], '标定网格');
   return [
     { id: 'D1.0', name: '24 个标定点完整且不重复', ok: allGrid, actual: grid.length },
     { id: 'D1.select', name: '工作点按最小 G、同 G 中间 b 选取', ok: (expectedPoint?.G ?? null) === (point?.G ?? null) && (expectedPoint?.b ?? null) === (point?.b ?? null), actual: point ? { G: point.G, b: point.b } : '无工作点' },
-    ...(point ? calibrationChecks(point).map(c => ({ ...c, id: `D1.${c.id}` })) : missing(['D1.3.1', 'D1.3.2', 'D1.3.3', 'D1.3.4'], '工作点条件')),
+    ...(point ? calibrationChecks(point).map(c => ({ ...c, id: `D1.${c.id}` })) : gridCoverage),
+    { id: 'D1.exists', name: '存在同时满足保持、收尾、频率和静息条件的工作点', ok: !!point, actual: point ? { G: point.G, b: point.b } : allGrid ? { points: grid.length, jointlyPassing: 0, maxHold: Math.max(...grid.map(p => p.holdRate)), requiredHold: 0.8 } : '未完成' },
     { id: 'D2.0', name: '四个剂量及失败类型均有结果', ok: doses.length === 4 && DOSES.every(k => doses.some(d => d.k === k && !!d.failures && d.checks?.length === 5)), actual: v3.dose.status === 'notRun' ? '未运行：D1 无工作点' : doses.length },
     { id: 'D2.select', name: 'k* 为最小通过剂量或确定无', ok: doses.length === 4 && v3.dose.kStar === expectedK, actual: v3.dose.status === 'notRun' ? '未运行' : v3.dose.kStar ?? '无' },
     { id: 'L1.0', name: '四个候选训练、复查与直方图完整', ok: candidates.length === 4 && Object.keys(CANDIDATES).every(id => candidates.some(c => c.candidate === id && c.checks.length === 7 && c.stats.histogram.counts.reduce((a, b) => a + b, 0) === c.stats.histogram.total)), actual: candidates.length },
@@ -316,7 +322,8 @@ export function drawV3(v3 = getV3()) {
   const c = new Canvas(1800, 760, [247, 249, 252]), ink = [30, 45, 60], muted = [90, 105, 120];
   const blue = [31, 119, 180], green = [44, 160, 44], orange = [255, 127, 14], red = [214, 39, 40];
   c.text(26, 22, 'DIRECTED ATTRACTOR CHAIN V3 - DOSE AND LEARNING', ink, 3);
-  c.text(26, 58, `CASE ${v3.decision?.case ?? '-'}  K-STAR ${v3.dose.kStar ?? 'NONE'}  ${v3.outcome ?? 'IN PROGRESS'}  V2 320X40 SOURCE - LEARNING G 0.6`, muted, 2);
+  const doseLabel = v3.dose.status === 'notRun' ? 'NOT MEASURED' : v3.dose.kStar ?? 'NONE';
+  c.text(26, 58, `CASE ${v3.decision?.case ?? '-'}  K-STAR ${doseLabel}  ${v3.outcome ?? 'IN PROGRESS'}  V2 320X40 SOURCE - LEARNING G 0.6`, muted, 2);
   const panel = (x, title) => { c.rect(x, 98, 565, 625, [255, 255, 255]); c.text(x + 16, 116, title, ink, 2); };
   panel(25, 'A. DOSE RESPONSE'); panel(615, 'B. LEARNED EXCESS RHO'); panel(1205, 'C. DECODED STATES - 20 TRIALS');
   const leftX = 86, top = 215, bottom = 526, width = 430;
@@ -375,6 +382,10 @@ export function finalizeV3() {
   const v3 = getV3(); v3.checks = v3Checks(v3);
   v3.outcome = v3.checks.every(c => c.ok) ? 'passed' : 'partial';
   v3.stopReason = v3.decision?.action === 'stop' ? v3.decision.reason : v3.outcome === 'partial' ? '主测试或对照未全部通过' : null;
+  v3.phases = { setup: 'passed', calibration: v3.calibration.status, dose: v3.dose.status, learning: v3.learning.status,
+    decision: v3.decision?.case ?? 'notRun', remedy: v3.remedy ? v3.remedy.attained && v3.remedy.usable ? 'passed' : 'failed' : 'notRun',
+    candidateCalibration: v3.candidateCalibration?.status ?? 'notRun', mainTest: v3.mainTest ? v3.mainTest.ok ? 'passed' : 'failed' : 'notRun',
+    controls: Object.keys(v3.controls ?? {}).length === 4 ? v3.controlChecks.every(c => c.ok) ? 'passed' : 'failed' : 'notRun' };
   updateV3(v3); drawV3(v3); report(v3.checks); return v3;
 }
 export function runV3All() {
