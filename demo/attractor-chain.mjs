@@ -55,11 +55,11 @@ export function resumableRng(initial = 1) {
     state: () => s };
 }
 
-export function buildChain(cfg = CONFIG, state = null, { G = state?.learnGain ?? cfg.initialGain ?? 1, b = 20, noiseSeed = 1001 } = {}) {
+export function buildChain(cfg = CONFIG, state = null, { G = state?.learnGain ?? cfg.initialGain ?? 1, b = 20, noiseSeed = 1001, plasticityOverrides = {}, eePlastic = {} } = {}) {
   costs ??= mammalianCosts();
   const plasticity = RULES[cfg.rule];
   if (!plasticity) throw new Error(`未知规则 ${cfg.rule}`);
-  const net = new SpikingNetwork({ costs, seed: cfg.seed, dt: cfg.dt, plasticity,
+  const net = new SpikingNetwork({ costs, seed: cfg.seed, dt: cfg.dt, plasticity: { ...plasticity, ...plasticityOverrides },
     pops: [{ name: 'E', n: cfg.NE, p: { b, tauW: cfg.tauW } }, { name: 'I', n: cfg.NI, p: { C: 100, tRef: 1 } }] });
   const pairs = [];
   for (let a = 0; a < cfg.NE; a++) for (let z = 0; z < cfg.NE; z++) {
@@ -68,7 +68,7 @@ export function buildChain(cfg = CONFIG, state = null, { G = state?.learnGain ??
     if (net.rng.uniform() < (ga >= 0 && ga === gz ? cfg.pIn : cfg.pOut)) pairs.push([a, z]);
   }
   const EE = net.connect({ pairs, contacts: cfg.contacts, pRelease: 0.3, tauRec: 100,
-    plastic: { sMin: cfg.sMin, sMax: cfg.sMax, rho0: cfg.rho0, accel: cfg.accel, budget: cfg.budget } });
+    plastic: { sMin: cfg.sMin, sMax: cfg.sMax, rho0: cfg.rho0, accel: cfg.accel, budget: cfg.budget, ...eePlastic } });
   net.connect({ from: 'E', to: 'I', p: cfg.pEI, contacts: 10, pRelease: 0.3, tauRec: 100, scale: cfg.sEI });
   const IE = net.connect({ from: 'I', to: 'E', p: cfg.pIE, contacts: 10, pRelease: 0.5, tauRec: 300, kind: 'inhFast', scale: cfg.sIE,
     istdp: { eta: cfg.eta, target: cfg.target, wMax: cfg.ieMax } });
@@ -96,7 +96,7 @@ export function captureRuntime(S) {
   for (const name of ['V', 'w', 'ref', 'Rin', 'x', 'y', 'y2', 'nmda', 'xs', 'ys']) if (net[name]) vectors[name] = Array.from(net[name]);
   return { t: net.t, vectors, ra: net.ra.map(a => Array.from(a)), rb: net.rb.map(a => Array.from(a)),
     ea: net.ea.map(a => Array.from(a)), eb: net.eb.map(a => Array.from(a)),
-    groups: net.groups.map(g => ({ R: Array.from(g.R), z: g.z ? Array.from(g.z) : null })),
+    groups: net.groups.map(g => ({ R: Array.from(g.R), z: g.z ? Array.from(g.z) : null, ...(g.nm ? { nm: Array.from(g.nm) } : {}) })),
     pending: net.pending.slice(), pendHead: net.pendHead, rng: net.rng.state(), ledger: Array.from(net.ledger.atp) };
 }
 export function restoreRuntime(S, runtime) {
@@ -106,7 +106,7 @@ export function restoreRuntime(S, runtime) {
     net[name].set(name === 'ref' ? values.map(x => x === null ? -Infinity : x) : values);
   }
   for (const name of ['ra', 'rb', 'ea', 'eb']) runtime[name].forEach((a, k) => net[name][k].set(a));
-  runtime.groups.forEach((g, k) => { net.groups[k].R.set(g.R); if (g.z) net.groups[k].z.set(g.z); });
+  runtime.groups.forEach((g, k) => { net.groups[k].R.set(g.R); if (g.z) net.groups[k].z.set(g.z); if (g.nm) net.groups[k].nm.set(g.nm); });
   net.pending = runtime.pending.slice(); net.pendHead = runtime.pendHead;
   net.rng = resumableRng(runtime.rng); net.ledger.atp = new Map(runtime.ledger);
 }
@@ -284,7 +284,7 @@ export function spearman(xs, ys) {
   return vx && vy ? mean(x.map((z, i) => (z - mx) * (y[i] - my))) / Math.sqrt(vx * vy) : 0;
 }
 
-function directionMetrics(S, experienced) {
+export function directionMetrics(S, experienced) {
   const weights = weightMatrix(S), pairs = [];
   for (let a = 0; a < 8; a++) for (let z = 0; z < 8; z++) if (a !== z) pairs.push({ from: a, to: z, rho: weights.matrix[a][z], count: experienced[a][z] });
   const edges = EDGES.map(([a, z]) => ({ from: LABELS[a], to: LABELS[z], forward: weights.matrix[a][z], reverse: weights.matrix[z][a],
@@ -410,24 +410,28 @@ export function ensureLearningGain(attractors) {
   return collectLearningGain(attractors);
 }
 
-function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = false, matchedPaths = null, learnGain = 1, allowFailedAttractors = false } = {}) {
+export function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = false, matchedPaths = null, learnGain = 1, allowFailedAttractors = false, v3 = null } = {}) {
   if (!allowFailedAttractors && !attractors.measurements.checks.every(x => x.ok)) throw new Error('步骤 1 未通过，禁止继续序列训练');
   const cfg = attractors.config, name = `${shuffled ? 'shuffled' : 'sequence'}-${episodes}-${itemMs}`;
-  const file = cacheFile(name, cfg), sourceHash = hash({ weights: weightHash(attractors), learnGain });
+  if (v3 && !v3.file?.startsWith('chain-v3-')) throw new Error('v3 训练必须使用独立的新缓存');
+  const file = v3 ? atPath('cache', `${v3.file}.json`) : cacheFile(name, cfg);
+  const overrides = v3?.settings ?? {};
+  const sourceHash = hash({ weights: weightHash(attractors), learnGain, ...(v3 ? { settings: overrides, itemMs, matchedPaths: matchedPaths ? hash(matchedPaths) : null } : {}) });
   if (fs.existsSync(file)) {
     const cached = jsonRead(file);
     if (cached.sourceHash !== sourceHash || cached.configHash !== hash(cfg)) throw new Error('序列缓存起点不匹配');
     return cached;
   }
-  const progressFile = cacheFile(`${name}-progress`, cfg);
+  const progressFile = v3 ? atPath('cache', `${v3.file}-progress.json`) : cacheFile(`${name}-progress`, cfg);
   let progress = fs.existsSync(progressFile) ? jsonRead(progressFile) : null;
   // 320 回合补救从首轮 160 的完整动力学继续，等价于从头运行同一前缀。
-  if (!progress && !shuffled && episodes === 320 && itemMs === 40) {
+  if (!progress && v3?.continueFile) progress = jsonRead(atPath('cache', `${v3.continueFile}-progress.json`));
+  if (!progress && !v3 && !shuffled && episodes === 320 && itemMs === 40) {
     const firstProgress = cacheFile('sequence-160-40-progress', cfg);
     if (fs.existsSync(firstProgress)) progress = jsonRead(firstProgress);
   }
   if (progress && (progress.sourceHash !== sourceHash || progress.state.configHash !== hash(cfg))) throw new Error('序列检查点起点不匹配');
-  const S = buildChain(cfg, progress?.state ?? attractors, { G: learnGain, noiseSeed: 4001 });
+  const S = buildChain(cfg, progress?.state ?? attractors, { G: learnGain, noiseSeed: 4001, ...overrides });
   const worldRng = resumableRng(progress?.worldRng ?? 4002), variantRng = resumableRng(progress?.variantRng ?? 4003), reverseRng = resumableRng(progress?.reverseRng ?? 4004);
   const experienced = progress?.experienced ?? Array.from({ length: 8 }, () => Array(8).fill(0));
   const paths = progress?.paths ?? [], variantCounts = progress?.variantCounts ?? Array(8).fill(0);
@@ -452,9 +456,10 @@ function trainSequence(attractors, { episodes = 160, itemMs = 40, shuffled = fal
   }
   const state = snapshot(S);
   state.sourceHash = sourceHash;
+  if (v3) state.v3Settings = overrides;
   state.training = { episodes, itemMs, shuffled, learnGain, paths, experienced, variantCounts, reversedEpisodes: paths.filter(p => p.reversed).length,
     seconds: elapsed + (Date.now() - t0) / 1000 };
-  const restS = buildChain(cfg, state, { noiseSeed: 5001 }); run(restS, 500);
+  const restS = buildChain(cfg, state, { noiseSeed: 5001, ...overrides }); run(restS, 500);
   const rest = restMetrics(restS); delete rest.bins10;
   const measurements = { direction: directionMetrics(S, experienced), rest, training: state.training };
   measurements.checks = sequenceChecks(measurements); state.measurements = measurements;
@@ -501,13 +506,15 @@ export function calibrationChecks(r) {
     { id: '3.4', name: '演化态静息点燃率不超过 10%', ok: r.rest.ignitionRate <= 0.1, actual: r.rest.ignitionRate },
   ];
 }
-export function calibrateCondition(main, G, b) {
-  if (!main.measurements.checks.every(x => x.ok)) throw new Error('步骤 2 未通过，禁止标定');
-  const cfg = main.config, file = cacheFile(`calib-g${G}-b${b}`, cfg), stateHash = weightHash(main);
+export function calibrateCondition(main, G, b, { allowFailedSequence = false, cachePath = null } = {}) {
+  if (allowFailedSequence && !path.basename(cachePath ?? '').startsWith('chain-v3-')) throw new Error('绕过 S2 仅允许 v3 独立缓存');
+  if (!allowFailedSequence && !main.measurements.checks.every(x => x.ok)) throw new Error('步骤 2 未通过，禁止标定');
+  const cfg = main.config, file = cachePath ?? cacheFile(`calib-g${G}-b${b}`, cfg), stateHash = weightHash(main);
+  const fingerprint = cachePath ? hash({ schema: 3, mode: 'calib', configHash: main.configHash, stateHash, G, b, settings: main.v3Settings ?? {} }) : null;
   if (fs.existsSync(file)) {
-    const r = jsonRead(file); if (r.stateHash !== stateHash) throw new Error('标定缓存与序列权重不匹配'); return r;
+    const r = jsonRead(file); if (r.stateHash !== stateHash || (cachePath && r.fingerprint !== fingerprint)) throw new Error('标定缓存与序列权重不匹配'); return r;
   }
-  const S = buildChain(cfg, main, { G, b, noiseSeed: 6001 }), threshold = thresholdFor(S), trials = [], t0 = Date.now();
+  const S = buildChain(cfg, main, { G, b, noiseSeed: 6001, ...main.v3Settings }), threshold = thresholdFor(S), trials = [], t0 = Date.now();
   for (let k = 0; k < 10; k++) {
     clearSpikes(S); const start = S.net.t;
     run(S, 40, { ids: prototype(5, cfg), hz: cfg.seqStim }); run(S, 3000);
@@ -522,6 +529,7 @@ export function calibrateCondition(main, G, b) {
   const r = { G, b, stateHash, threshold, holdRate: mean(trials.map(t => Number(t.holdMs >= 80))),
     endRate: mean(trials.map(t => Number(t.endedIn1s))), activeRate: mean(trials.flatMap(t => t.decoded.activeRates)),
     rest, trials, seconds: (Date.now() - t0) / 1000 };
+  if (cachePath) Object.assign(r, { configHash: main.configHash, settings: main.v3Settings ?? {}, fingerprint });
   r.checks = calibrationChecks(r); r.ok = r.checks.every(x => x.ok); jsonWrite(file, r); reportChecks(r.checks);
   return r;
 }
@@ -544,17 +552,19 @@ export function collectGrid(main) {
   return { grid, workingPoint };
 }
 
-export function runTrials(state, { G, b, count = 40, lowNoise = false, enforceRest = false, name = 'main' }) {
-  const cfg = state.config, file = cacheFile(`trials-${name}-g${G}-b${b}`, cfg), stateHash = weightHash(state);
+export function runTrials(state, { G, b, count = 40, lowNoise = false, enforceRest = false, name = 'main', cachePath = null }) {
+  if (cachePath && !path.basename(cachePath).startsWith('chain-v3-')) throw new Error('自定义试次缓存仅允许 v3 前缀');
+  const cfg = state.config, file = cachePath ?? cacheFile(`trials-${name}-g${G}-b${b}`, cfg), stateHash = weightHash(state);
+  const fingerprint = cachePath ? hash({ schema: 3, mode: 'trials', stateHash, G, b, count, lowNoise, enforceRest, settings: state.v3Settings ?? {} }) : null;
   if (fs.existsSync(file)) {
     const cached = jsonRead(file);
-    if (cached.stateHash !== stateHash || cached.lowNoise !== lowNoise || cached.enforceRest !== enforceRest) throw new Error('试次缓存条件不符');
+    if (cached.stateHash !== stateHash || cached.lowNoise !== lowNoise || cached.enforceRest !== enforceRest || (cachePath && cached.fingerprint !== fingerprint)) throw new Error('试次缓存条件不符');
     return cached;
   }
-  const progressFile = cacheFile(`trials-${name}-g${G}-b${b}-progress`, cfg);
+  const progressFile = cachePath ? file.replace(/\.json$/, '-progress.json') : cacheFile(`trials-${name}-g${G}-b${b}-progress`, cfg);
   const progress = fs.existsSync(progressFile) ? jsonRead(progressFile) : null;
-  if (progress && progress.stateHash !== stateHash) throw new Error('试次检查点来源不符');
-  const S = buildChain(cfg, state, { G, b, noiseSeed: 7001 });
+  if (progress && (progress.stateHash !== stateHash || (cachePath && progress.fingerprint !== fingerprint))) throw new Error('试次检查点来源不符');
+  const S = buildChain(cfg, state, { G, b, noiseSeed: 7001, ...state.v3Settings });
   const threshold = progress?.threshold ?? thresholdFor(S, lowNoise);
   if (progress) restoreRuntime(S, progress.runtime);
   const trials = progress?.trials ?? [], rejected = progress?.rejected ?? [];
@@ -569,11 +579,12 @@ export function runTrials(state, { G, b, count = 40, lowNoise = false, enforceRe
     const returnedToRest = tail.every(row => row.every(r => r <= threshold.threshold));
     const trial = { attempt: attempts, bins, decoded, returnedToRest, restTail: tail };
     if (enforceRest && !returnedToRest) rejected.push(trial); else trials.push(trial);
-    jsonWrite(progressFile, { stateHash, threshold, trials, rejected, attempts, runtime: captureRuntime(S), seconds: elapsed + (Date.now() - t0) / 1000 });
+    jsonWrite(progressFile, { stateHash, ...(cachePath ? { fingerprint } : {}), threshold, trials, rejected, attempts, runtime: captureRuntime(S), seconds: elapsed + (Date.now() - t0) / 1000 });
     console.log(`${name}: ${trials.length}/${count} 有效试次，作废 ${rejected.length}`);
   }
   const r = { stateHash, G, b, lowNoise, enforceRest, threshold, trials, rejected, attempts, finished: trials.length === count,
     summary: summarizeTrials(trials), seconds: elapsed + (Date.now() - t0) / 1000 };
+  if (cachePath) Object.assign(r, { configHash: state.configHash, settings: state.v3Settings ?? {}, fingerprint });
   jsonWrite(file, r); return r;
 }
 
@@ -822,5 +833,13 @@ function main() {
   } else throw new Error(`未知 MODE=${mode}`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  try { main(); } catch (error) { console.error(error.stack); process.exitCode = 1; }
+  const entry = async () => {
+    try {
+      if (process.env.MODE?.startsWith('v3-')) {
+        const { runV3Mode } = await import('./attractor-chain-v3.mjs');
+        process.exitCode = runV3Mode(process.env.MODE);
+      } else main();
+    } catch (error) { console.error(error.stack); process.exitCode = 1; }
+  };
+  entry();
 }

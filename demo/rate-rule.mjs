@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { ROOT, CONFIG, RULES, buildChain, mean, resumableRng } from './attractor-chain.mjs';
+import { candidateSettings } from './chain-v3-settings.mjs';
 
 export const RATE_MODES = ['classes', 'direction', 'rest'];
 export const RATE_RULES = ['GB_RATE', 'GB_NMDA', 'GB_NMDA_ETA0'];
@@ -38,16 +39,20 @@ const deltas = (S, initial, classify) => {
   return Object.fromEntries(Object.entries(acc).map(([name, a]) => [name, { meanDelta: a.sum / a.n, n: a.n, fracUp: a.up / a.n }]));
 };
 
-export function runRateCase(mode, rule) {
+export function runRateCase(mode, rule, { candidate = null } = {}) {
   if (!RATE_MODES.includes(mode) || !RATE_RULES.includes(rule)) throw new Error('规则或模式不在预定九项测试中');
+  if (candidate && (rule !== 'GB_RATE' || !['classes', 'rest'].includes(mode))) throw new Error('v3 候选只复查 GB_RATE 四类与静息');
+  const settings = candidate ? candidateSettings(candidate) : {};
   const cfg = { ...CONFIG, pIn: 0.1, pOut: 0.1, bg: 30, bgI: 12, initialGain: 1, rule };
-  const fingerprint = crypto.createHash('sha256').update(JSON.stringify({ version: 1, cfg, plasticity: RULES[rule] })).digest('hex');
-  const file = fileFor(mode, rule);
+  const fingerprint = crypto.createHash('sha256').update(JSON.stringify({ version: 1, cfg, plasticity: RULES[rule], ...(candidate ? { candidate, settings } : {}) })).digest('hex');
+  const file = candidate ? path.join(ROOT, 'cache', `chain-v3-rate-${mode}-${candidate}.json`) : fileFor(mode, rule);
   if (fs.existsSync(file)) { const r = JSON.parse(fs.readFileSync(file, 'utf8')); if (r.fingerprint !== fingerprint) throw new Error('规则验收缓存配置不符'); return r; }
   const r = { mode, rule, cfg, plasticity: RULES[rule], fingerprint }, t0 = Date.now();
+  if (candidate) Object.assign(r, { candidate, settings, effectivePlasticity: { ...RULES[rule], ...settings.plasticityOverrides } });
+  const build = () => buildChain(cfg, null, settings);
   if (mode === 'classes') {
     for (const budgetOn of [true, false]) {
-      const S = buildChain(cfg), rng = resumableRng(3), rates = { A: [], outside: [] };
+      const S = build(), rng = resumableRng(3), rates = { A: [], outside: [] };
       if (!budgetOn) S.EE.plastic.budget = undefined;
       run(S, 500); const initial = S.EE.rho.slice();
       for (let n = 0; n < 20; n++) {
@@ -67,7 +72,7 @@ export function runRateCase(mode, rule) {
       r[budgetOn ? 'budgetOn' : 'budgetOff'] = { classes, rateA: mean(rates.A), rateOutside: mean(rates.outside) };
     }
   } else if (mode === 'direction') {
-    const S = buildChain(cfg); run(S, 500); const initial = S.EE.rho.slice();
+    const S = build(); run(S, 500); const initial = S.EE.rho.slice();
     for (let n = 0; n < 40; n++) {
       run(S, 40, { ids: proto(0, cfg), hz: 58, learn: true });
       run(S, 40, { ids: proto(1, cfg), hz: 58, learn: true });
@@ -82,7 +87,7 @@ export function runRateCase(mode, rule) {
     });
     r.direction = Object.fromEntries(Object.entries(r.classes).map(([k, v]) => [k, v.meanDelta]));
   } else {
-    const S = buildChain(cfg); run(S, 500); r.trace = [{ seconds: 0, ...stats(S) }];
+    const S = build(); run(S, 500); r.trace = [{ seconds: 0, ...stats(S) }];
     for (let k = 1; k <= 6; k++) {
       clear(S); const start = S.net.t; run(S, 5000, { learn: true });
       r.trace.push({ seconds: k * 5, rE: frequency(S, S.E, start, 5000), rI: frequency(S, S.I, start, 5000), ...stats(S) });
@@ -125,7 +130,9 @@ export function ensureRateResults() {
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const mode = process.env.MODE ?? 'all';
   try {
-    const r = mode === 'all' ? ensureRateResults() : mode === 'collect' ? collectRateResults() : runRateCase(mode, process.env.RULE ?? 'GB_RATE');
+    const candidate = process.env.CANDIDATE;
+    const r = candidate ? (mode === 'all' ? Object.fromEntries(['classes', 'rest'].map(m => [m, runRateCase(m, 'GB_RATE', { candidate })])) : runRateCase(mode, 'GB_RATE', { candidate }))
+      : mode === 'all' ? ensureRateResults() : mode === 'collect' ? collectRateResults() : runRateCase(mode, process.env.RULE ?? 'GB_RATE');
     if (r.checks) for (const c of r.checks) console.log(`${c.ok ? '✓' : '✗'} ${c.id} ${c.name}: ${JSON.stringify(c.actual)}`);
     process.exitCode = r.ok === false ? 2 : 0;
   } catch (e) { console.error(e.stack); process.exitCode = 1; }
