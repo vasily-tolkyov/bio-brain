@@ -28,4 +28,4 @@
 
 当前状态与下一步预测需要分开承载，并改变学习规则。后续见[深层预测网络](deep-predictive.md)与[状态页](../STATUS.md)。
 
-来源：[demo/handover.mjs](../../../../demo/handover.mjs) 文件头、[交接日志](../../../../experiments/logs/4-handover)，以及计划附录 A4 第 8 条。
+来源：demo/handover.mjs（历史文件：`handover.mjs`，未纳入本次发布） 文件头、交接日志（本地证据：`4-handover`，未上传），以及计划附录 A4 第 8 条。

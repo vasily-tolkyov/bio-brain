@@ -27,4 +27,4 @@
 
 需要让产生预测的通路本身学对方向，并在 X 期间表达 Y，见[状态页](../STATUS.md)。
 
-来源：[README.zh-CN.md](../../../../README.zh-CN.md)“第四步”、[序列期待日志与结果](../../../../experiments/logs/4-sequence-expectation)，以及计划附录 A4 第 6 条。
+来源：[README.zh-CN.md](../../../../README.zh-CN.md)“第四步”、序列期待日志与结果（本地证据：`4-sequence-expectation`，未上传），以及计划附录 A4 第 6 条。

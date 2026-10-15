@@ -8,12 +8,17 @@ import { verifyL4Uat } from './L4-uat.mjs';
 import { verifyL4TwoLayer } from './L4-two-layer.mjs';
 import { verifyL4Hierarchy } from './L4-hierarchy.mjs';
 import { verifyL4Predictive } from './L4-predictive.mjs';
+import { verifyL4RateRule } from './L4-rate-rule.mjs';
 import { verifyL5 } from './L5-brain.mjs';
+import { verifyLoopWorld } from './loop-world.mjs';
+import { verifyL4Slow } from './L4-slow.mjs';
+import { verifyL4ThreeFactor } from './L4-three-factor.mjs';
+import { verifyLoopBuild } from './loop-build.mjs';
 
 const t0 = Date.now();
 const results = [];
-const layers = [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L4b', verifyL4Emergence], ['L4c', verifyL4Uat], ['L4d', verifyL4TwoLayer], ['L4e', verifyL4Hierarchy], ['L4f', verifyL4Predictive], ['L5', verifyL5]]
-  .filter(([n]) => !(process.env.FAST && ['L4b', 'L4d', 'L4e', 'L4f'].includes(n)));
+const layers = [['L1', verifyL1], ['L2', verifyL2], ['L3', verifyL3], ['L4', verifyL4], ['L4b', verifyL4Emergence], ['L4c', verifyL4Uat], ['L4d', verifyL4TwoLayer], ['L4e', verifyL4Hierarchy], ['L4f', verifyL4Predictive], ['L4h', verifyL4RateRule], ['L5', verifyL5], ['loop-world', verifyLoopWorld], ['L4i', verifyL4Slow], ['L4j', verifyL4ThreeFactor], ['loop-build', verifyLoopBuild]]
+  .filter(([n]) => !(process.env.FAST && ['L4b', 'L4d', 'L4e', 'L4f', 'L4h'].includes(n)));
 for (const [name, fn] of layers) {
   const t = Date.now();
   const { ok } = fn();

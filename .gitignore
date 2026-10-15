@@ -1,6 +1,9 @@
 node_modules/
 *.log
-!experiments/logs/**/*.log
 scratch/
 cache/
 .cursor/
+*.cpuprofile
+experiments/*
+!experiments/README.md
+figures/*.json

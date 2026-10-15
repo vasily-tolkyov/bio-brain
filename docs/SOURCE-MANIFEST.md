@@ -1,0 +1,76 @@
+# 发布源码清单
+
+来源：本地附注标签 `attempt/loop/w4-diag4`，归档提交 `d992a9c0f914f7b033aee480e3d99da4db1d8b81`。实现提交：`44f57ca81b9c9a47f55bd4d5a8053f62372e244f`。
+
+清单包含 68 个源码文件。66 个文件保持原路径与字节；`verify/bench-spiking.mjs` 保持原 `experiments/bench-spiking.mjs` 的字节；`verify/L4-slow.mjs` 只把基准工具导入路径改为 `./bench-spiking.mjs`。算法和参数没有改变。当前内容为实现快照，W4 尚未通过正式验收。
+
+| 路径 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `demo/aligned-abstraction.mjs` | 3512 | `30747303bb066990095ecd623cda9ba0e9eeda98d4ff7543b469467ea75758a2` |
+| `demo/balanced-layer.mjs` | 9718 | `f46e740f2f6f1be1108f4d34ac7b600a59edc0496bd4988bd713ec3c66dff719` |
+| `demo/fig1-L1-L3.mjs` | 4958 | `8988e601afd9a5fc4affeb8fb0727af03c238dc17c9be62e407e964442b185ff` |
+| `demo/fig10-hierarchy.mjs` | 16690 | `130b035e32d6969022cfeae2ec594adf2d4e94339aa16113c5148ec3a17243a8` |
+| `demo/fig11-apical.mjs` | 5124 | `3f66502ec81ccf3b80214921b4ed5327d60745776ddfeff841a80aede70f1d5d` |
+| `demo/fig2-network.mjs` | 14887 | `e94a20b0e36d11f36903fb070609f446d431bcdbdf9e48b271e57b48885d6565` |
+| `demo/fig5-decode.mjs` | 8125 | `b3f56e2ff9d6d0656f99e6d6d287aef54970610d5bc0816540cf7c30f012b766` |
+| `demo/fig8-two-layer.mjs` | 9267 | `e8b87052d1906ff8aaf4bdc577ef9c8e34f1b8861adce98a85607108defe69b9` |
+| `demo/lib-hierarchy.mjs` | 5489 | `ed9b4e5f84164399dbfc2f776f81ab18d7c16220c7dc72fc98cf35b7a27c928d` |
+| `demo/lib-trained.mjs` | 5399 | `bb9cd81f581fa29b22ca01db0c0408a5c46701f9d3a2867603c4dcff53af0f4c` |
+| `demo/loop-diag.mjs` | 41796 | `08f5693dbd43c8d00d0b2b88cbaff2cf4f22be10fdda71ff9a81c9fbcf3dd99e` |
+| `demo/negative-error.mjs` | 7360 | `a12b954f27acfce8f4826a523f08dd597c027388a47a8937c7e8b93025f252e3` |
+| `demo/noisy-depth.mjs` | 1876 | `0e6eea0a5cdd43122fbae7ba1e2f923c5e0126b8139e4a80f286be05c7fd1fab` |
+| `demo/predictive-hierarchy.mjs` | 19649 | `6b4bcb3a07ca46155da4aa46a1263627715c36b18cb11d5906d402bf089c311c` |
+| `demo/rate-rule.mjs` | 8822 | `8715c232222f3fa5914e9c201a39f25b0ce9f484068015dbd912ed3eb02a54cf` |
+| `demo/rule-extraction.mjs` | 13438 | `0afa215a8bfc58286ad8815dd677137724c1f6e9527a9e2141e9e939fc4f91a1` |
+| `demo/two-layer-drive.mjs` | 3058 | `90c4771d05b44637c7cdef3200af7cfc0bc8b9087b622e5afa493ccb6e42019d` |
+| `demo/uat.mjs` | 13525 | `7d3cbcfcfeaf910b92e1787549a30e569cc32f7f561042d9edefd0f323a48d13` |
+| `src/L1-neuron/hh.mjs` | 5051 | `634dc04c3499e81e9be38b178d75ac0023f8ffc514d23d45909087cbe590a027` |
+| `src/L1-neuron/lif.mjs` | 1753 | `02ecc95cf3a66ba2114cdaa0b38295c1168f463940cb2e98b9a40ed7c7f01f4a` |
+| `src/L2-synapse/synapse.mjs` | 4071 | `1ce30930625ea8905110da771b21dcf48da65d495deca2908e78340effbc8964` |
+| `src/L3-plasticity/calcium-rule.mjs` | 4252 | `a223e0398ec076e03170fe8973114bfb82ae419d70209fe0654ee7a5fe7704ff` |
+| `src/L3-plasticity/circuit.mjs` | 3622 | `08f3b4f5624f9641bc8d28dfa38528205b04ce4fa1166c85bfc03c266a714c40` |
+| `src/L4-network/attractor-layer.mjs` | 5595 | `ab90d9b9565c5c37370bc7d52be88d31336dde415e63632e675d3b3d51ed185c` |
+| `src/L4-network/layered-network.mjs` | 13746 | `85d815edb018fd75196860364552314dfe982096b6d9ef532e43629ea76d451b` |
+| `src/L4-network/learning.mjs` | 2131 | `84bcfb1560ce4b984d0cc1f3bb87ad41cabc2a396d9e08d5bc5c257defa061fc` |
+| `src/L4-network/metabolism.mjs` | 805 | `d00cad84bbce3062fc77a78b1485edd8279ce6158fdf729b7ff9d70a5d5d1891` |
+| `src/L4-network/rate-network.mjs` | 3108 | `7353d452cc0f2a357649907fdf5893316a215a46b333a23dec3e81aa5074515c` |
+| `src/L4-network/spiking-network.mjs` | 32070 | `01c3b622e9c2963be713e6f03292e1b8f2f4cc308df2c881abbd2a070390f5cd` |
+| `src/L4-network/step-hooks.mjs` | 1607 | `5a55abe051001d152104640bd0a035f7f5727083a19639a3358b7ed755d686fd` |
+| `src/L4-network/three-factor.mjs` | 3863 | `7b07db58f6adac09c6d4c685c534bc08493eeabc62009a19e2a035e27b22eb75` |
+| `src/L5-brain/cortex.mjs` | 2273 | `e1bfc7d0a56dc07492a4eb16e8533cf73e1359f94a0c7eea5689a10d0c80d0e8` |
+| `src/L5-brain/head-direction.mjs` | 5165 | `4c169fdb2992ed799465e132479b2aad9cc0f17cb4266596d69413c7bb169aa9` |
+| `src/L5-brain/hippocampus.mjs` | 5145 | `851d4821d199dca5b26b92c3c1a20cd5cea9f8fb553dbf70b6b781f757b44ff0` |
+| `src/L5-brain/prefrontal.mjs` | 1499 | `b8e4c431d0f1925104f44ea9739fa906c139fd50a873dd484ea0162fb72bf333` |
+| `src/core/check.mjs` | 869 | `ef361b328a1c1ccc223696a908e851346292fae82ff44b88c7da9a46a7e6a5fa` |
+| `src/core/ledger.mjs` | 2617 | `f83851c70cc23b3848cb7a2bc4b3250f9d3e4c8495c3ccbed8b9e20363ac7cfe` |
+| `src/core/png.mjs` | 6723 | `f59e50bc471b58dbd00a464bf6e93f652023b9b6887af8b4c6804018ef70ab15` |
+| `src/core/rng.mjs` | 1090 | `78e2d7263f85dec0ba80d30f41c2106202bbc217b2849a52bb3c79e7a35df6aa` |
+| `src/core/units.mjs` | 814 | `24c197de97b98072b948472339ad0885b3c44fd0fac1ac627bab019c8ad4e947` |
+| `src/loop/actions.mjs` | 1633 | `22b4de56301857dfa64885fd4c6dac4f47a716fde59d6193f8db8443749d896b` |
+| `src/loop/build.mjs` | 13228 | `bc281f47d0f350a223ddcb52727a57d6d94b229b40d0cffc270ae4b410894043` |
+| `src/loop/context.mjs` | 4356 | `2299932d328ee8b76cd004a2709eb964882f28b7eac08e43eedfc3e70eaf05a8` |
+| `src/loop/decode.mjs` | 3978 | `3708524f626293a96c10f512574a6639de48a55501c323e31df0f1250798828a` |
+| `src/loop/e1.mjs` | 6063 | `9955da00c8d0e4c10626692335f508582144b94060a7b10988424c6e9205479d` |
+| `src/loop/e2.mjs` | 7949 | `950e8a1561c99d5b563125a199a01dde55c1ec12ea79c8e227012419d650b2c1` |
+| `src/loop/errors.mjs` | 3442 | `7f2d8378310995dadf217d904914c6dcb08688dbccf96ee39a2605e58852ed2d` |
+| `src/loop/expect.mjs` | 3339 | `ee144315fe0d8371db6b3e16b8a315eb808a6b58b9115b28d0ed856c01eada27` |
+| `src/loop/protocol.mjs` | 12846 | `54735e3668d1c9aec12f1c0c1796e03bc7ee4aab4edb84585ed274211b1abc8b` |
+| `src/loop/readout.mjs` | 4469 | `7e21be3d0c7ed0c11fd3182407cb4f4276cb97e2a861c94f0deabf9501b1831a` |
+| `src/loop/world.mjs` | 9259 | `6494c21edfe753132d6a6c3c7d3a42c2a17b92709b4bbd5f48e314343186e50c` |
+| `verify/L1-neuron.mjs` | 4030 | `3bf50668fb905e2d237c7dcb00a0341248a641b63d9eae43046cb6482c7e3be8` |
+| `verify/L2-synapse.mjs` | 4649 | `b445e6625f2c657b1faeef14012b523ce4e2520969d5c0e1de26f8851b390209` |
+| `verify/L3-hebbian.mjs` | 5259 | `0592fc189341631a7d215f9c380ebec9457a22820b818f7fbc95e17af573ba35` |
+| `verify/L4-emergence.mjs` | 6155 | `637e567c6a7fd408a6494223b7c5d86c85a528a47ae915a2b5f528ac97fbcdf8` |
+| `verify/L4-hierarchy.mjs` | 4691 | `686bc51204b64da1266e2c7652a0e8dba47077f57b679568202c6fd6d4fad4aa` |
+| `verify/L4-network.mjs` | 10197 | `af69a9106c5b28330eed1d2c8c351c0f18021db3cf2898fd1d5c8ce145ec5d6f` |
+| `verify/L4-predictive.mjs` | 4493 | `c3f3e793f82a98a4958f76a392730513e753a595cf773e4b5101d6c903f4e938` |
+| `verify/L4-rate-rule.mjs` | 835 | `3195b1bb160b081771755d63dba721b9736e206fd7a53a3d1a5876e3f1f38c27` |
+| `verify/L4-slow.mjs` | 7409 | `f62f423eebf9d896676c5b962b75405d960ff1dc5c69b53023f99170b092ac59` |
+| `verify/L4-three-factor.mjs` | 7032 | `0e179722aa1665cbae6913e977081c7de516918a56c96654ed3bad3b5c57da42` |
+| `verify/L4-two-layer.mjs` | 3175 | `f4b13a4a7a400a0603ac0cee869ebb3343169a5df02d0723c78ce2518b26f3b4` |
+| `verify/L4-uat.mjs` | 5521 | `5b9429c5f6dd2ec93575b96d4320bad3c343ec1428fdcb9f2e5919094b2e2268` |
+| `verify/L5-brain.mjs` | 12525 | `cbc41ee16794491fc9a525d3d1eae4804ebf45b22005b1f6a5166cef1371c9a0` |
+| `verify/all.mjs` | 1825 | `31513a3dcf237728163c8cfdfdc611e45ac6f49e2a8d9e870529726f94bacc9b` |
+| `verify/bench-spiking.mjs` | 4565 | `211846b5c5851e44881868eceacbb2ca1fa3fb72fbb9e2abd3d01f82ea4a9564` |
+| `verify/loop-build.mjs` | 31695 | `903b95a3f13c81fa3cbc600e67f635956ff433bc6f6542438ba63648e3ba61d1` |
+| `verify/loop-world.mjs` | 9027 | `ae7f01febf23eff1eb4d5c03b3fd4b9c3186e3f4ec5552490bc68a06e8ae5b4f` |

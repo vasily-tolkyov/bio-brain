@@ -1,5 +1,7 @@
 # bio-brain：逐层生物脑模型
 
+> 本文保留基础模型的技术说明与历史运行结果。当前闭环设计见 [最新架构](docs/ARCHITECTURE.md)，实现及验收状态见 [发布说明](docs/PUBLICATION.md)。W4-diag4 未通过；本文原有 `npm run verify` 和 FAST 说明不能替代新 W4-r4 验收。
+
 从单个神经元一路搭到脑结构，共五层：
 
 1. 单个神经元

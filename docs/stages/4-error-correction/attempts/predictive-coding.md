@@ -28,4 +28,4 @@
 
 物体级校对不等于学会“接下来是什么”。下一步是[序列期待](sequence-expectation.md)，完整进展见[状态页](../STATUS.md)。
 
-来源：[README.zh-CN.md](../../../../README.zh-CN.md)“第三步”、[预测编码日志](../../../../experiments/logs/4-predictive-coding)，以及计划附录 A3 第 4 段与 A4 第 5 条。
+来源：[README.zh-CN.md](../../../../README.zh-CN.md)“第三步”、预测编码日志（本地证据：`4-predictive-coding`，未上传），以及计划附录 A3 第 4 段与 A4 第 5 条。

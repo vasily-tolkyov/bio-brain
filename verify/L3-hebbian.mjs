@@ -1,6 +1,6 @@
 /** 第 3 层验证：钙规则给出 STDP 时间窗；NMDA 同时检测加强"前在后前"的增强；
  * 一群神经元被一起激活后互相增强，之后再要让它们一起放电，所需的上游驱动与整个系统的 ATP 都变少（两本账分开记）。 */
-import { pairingChange } from '../src/L3-plasticity/calcium-rule.mjs';
+import { pairingChange, GB_NMDA, GB_RATE } from '../src/L3-plasticity/calcium-rule.mjs';
 import { SpikingCircuit } from '../src/L3-plasticity/circuit.mjs';
 import { mammalianCosts } from '../src/L1-neuron/hh.mjs';
 import { checker, fmt } from '../src/core/check.mjs';
@@ -20,6 +20,14 @@ export function verifyL3() {
   const withNmda = (d) => pairingChange(d, { p: { eta: 1 } });
   c.check('NMDA 同时检测（反传电位挪开镁塞时多进的钙）只加强"前在后前"一侧', withNmda(30) > 1.3 * pairingChange(30) && Math.abs(withNmda(-20) - at(-20)) < 0.05 * Math.abs(at(-20)),
     `+30 ms：${fmt(pairingChange(30), 3)} → ${fmt(withNmda(30), 3)}；−20 ms 不变`);
+
+  for (const [freq, deltaT, reference] of [[1, 10, -0.074], [5, 10, -0.113], [10, 10, -0.122], [20, 10, 0.040], [40, 10, 0.112], [20, -10, -0.119]]) {
+    const actual = pairingChange(deltaT, { p: GB_RATE, pairs: 60, freq });
+    c.check(`GB_RATE 60 次配对：${freq} Hz、${deltaT > 0 ? '+' : ''}${deltaT} ms 与参考值误差不超过 0.005`, Math.abs(actual - reference) <= 0.005,
+      `Δρ ${fmt(actual, 6)}，参考 ${fmt(reference, 3)}`);
+  }
+  const original = pairingChange(10, { p: GB_NMDA, pairs: 60, freq: 1 });
+  c.check('GB_NMDA 原规则不变：1 Hz、+10 ms 仍增强约 +0.053', Math.abs(original - 0.053) <= 0.001, `Δρ ${fmt(original, 6)}`);
 
   // 一群 10 个神经元两两互连，一起被爆发式激活 → 互相增强
   const costs = mammalianCosts();
